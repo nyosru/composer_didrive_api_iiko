@@ -1,0 +1,3 @@
+<?php
+
+//Nyos\mod\ParserIiko;
