@@ -25,6 +25,21 @@ class Iiko {
     public static $protokol = 'http://';
 
     /**
+     * кешировать или не кешировать
+     * @var bool
+     */
+    public static $cash = true;
+
+    /**
+     * русское название запроса и его uri
+     * @var array
+     */
+    public static $request_ru = array(
+        'сотрудники' => 'employees',
+        'выход' => 'logout'
+    );
+
+    /**
      * расщифровка типов отделов
      * @var array
      */
@@ -41,31 +56,115 @@ class Iiko {
     );
 
     /**
+     * сохраняем ключ доступа к айко
+     */
+    public static function saveCashKey() {
+        file_put_contents(dirname(__FILE__) . '/iiko.cash.key', self::$api_key);
+    }
+
+    /**
+     * достаём ключ из памяти
+     * @return boolean
+     */
+    public static function getCashKey() {
+
+        echo '<br/>' . dirname(__FILE__) . '/iiko.cash.key';
+
+        if (file_exists(dirname(__FILE__) . '/iiko.cash.key')) {
+            return self::$api_key = file_get_contents(dirname(__FILE__) . '/iiko.cash.key');
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * затираем сохранённый ключ
+     * @return boolean
+     */
+    public static function clearCashKey() {
+        if (file_exists(dirname(__FILE__) . '/iiko.cash.key'))
+            unlink(dirname(__FILE__) . '/iiko.cash.key');
+    }
+
+    /**
      * получаем ключ доступа к айко
      */
     public static function getAutKey() {
 
+        if (self::$cash === true) {
+            if (self::getCashKey() !== false) {
+                
+                echo '<br/><br/>достали ключ из кеша<br/><br/>';
+               
+                return self::$api_key;
+            }
+        }
+
         self::$api_key = self::curl_get(self::$protokol . self::$host . '/resto/api/auth', array('login' => self::$login, 'pass' => sha1(self::$pass)));
+
+        if (strpos(self::$api_key, 'no connections available') !== false)
+            throw new \Exception('нет свободных доступов');
+
+        if (strpos(self::$api_key, 'HTTP 404') !== false)
+            throw new \Exception(self::$api_key);
+
+        if( self::$cash === true ){
+        self::saveCashKey();
+        }
+
+        //echo '<br><br>key<br/>' . self::$api_key . '<hr>';
+        echo '<div style="background-color:yellow;padding:10px;margin-bottom:10px;">key<br/>' . self::$api_key . '</div>';
+
         return self::$api_key;
     }
 
     public static function getAnswer($request, $vars = []) {
 
+        $request2 = $request;
+        
+        if (isset(self::$request_ru[$request]))
+            $request = self::$request_ru[$request];
+
         if (self::$api_key === null)
             self::getAutKey();
 
+//        echo '<br/>';
+//        echo '<br/>';
         $vars['key'] = self::$api_key;
+//        echo '<br/>';
+//        echo '<br/>';
 
-        $e1 = self::curl_get(self::$protokol . self::$host . '/resto/api/' . $request, $vars);
+        $uri = self::$protokol . self::$host . '/resto/api/' . $request;
 
-        $xml = simplexml_load_string($e1, "SimpleXMLElement", LIBXML_NOCDATA);
-        $json = json_encode($xml);
-        $array = json_decode($json, TRUE);
+        // echo '<br><br>uri: ' . $uri ;
 
-        if (function_exists('\f\pa'))
-            \f\pa($array);
+        $re = self::curl_get($uri, $vars);
 
-        return $array;
+        if (strpos($re, 'Token is expired or invalid') !== false){
+
+            self::clearCashKey();
+            $re = self::curl_get($uri, $vars);
+
+            if (strpos($re, 'Token is expired or invalid') !== false)
+            throw new \Exception('Токен не верный или не рабочий');
+
+        }
+
+        if (strpos($re, 'HTTP 404') !== false){
+            
+            self::getAnswer('выход');
+            
+            throw new \Exception($re);
+        }
+
+        echo '<div style="background-color:yellow;padding:10px;margin-bottom:10px;max-height:300px;overflow:auto;">res<br/>' . $re . '</div>';
+
+            $re = self::compileArray( $re, $request2 );
+
+//        if (function_exists('\f\pa'))
+//            \f\pa($array);
+
+        return $re;
     }
 
     /**
@@ -125,6 +224,39 @@ class Iiko {
         }
         curl_close($ch);
         return $result;
+    }
+
+    /**
+     * приводим в порядок (массив) что получили
+     * @param array $ar
+     * @param type $type
+     * @return array
+     */
+    public static function compileArray(string $xml, $type = '') {
+
+        $xml2 = simplexml_load_string($xml, "SimpleXMLElement", LIBXML_NOCDATA);
+        $json = json_encode($xml2);
+        $array = json_decode($json, TRUE);
+
+        if ($type == 'сотрудники') {
+
+            $re = [];
+
+            foreach ($array['employee'] as $k => $v) {
+                $re[] = $v;
+            }
+        } elseif ($type == 'corporation/departments/') {
+
+            $re = [];
+
+            foreach ($array['corporateItemDto'] as $k => $v) {
+                $re[] = $v;
+            }
+        } else {
+            return $array;
+        }
+
+        return $re;
     }
 
 }
