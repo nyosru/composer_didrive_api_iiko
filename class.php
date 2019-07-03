@@ -23,6 +23,12 @@ class Iiko {
     public static $pass = null;
     public static $api_key = null;
     public static $protokol = 'http://';
+    public static $db_type = 'dblib';
+    public static $db_host = ''; // 94.137.22.202
+    public static $db_port = ''; // 1433
+    public static $db_base = ''; // chain
+    public static $db_login = ''; // developer
+    public static $db_pass = ''; // fEc0OMdeech0
 
     /**
      * кешировать или не кешировать
@@ -93,9 +99,9 @@ class Iiko {
 
         if (self::$cash === true) {
             if (self::getCashKey() !== false) {
-                
+
                 echo '<br/><br/>достали ключ из кеша<br/><br/>';
-               
+
                 return self::$api_key;
             }
         }
@@ -108,8 +114,8 @@ class Iiko {
         if (strpos(self::$api_key, 'HTTP 404') !== false)
             throw new \Exception(self::$api_key);
 
-        if( self::$cash === true ){
-        self::saveCashKey();
+        if (self::$cash === true) {
+            self::saveCashKey();
         }
 
         //echo '<br><br>key<br/>' . self::$api_key . '<hr>';
@@ -118,10 +124,114 @@ class Iiko {
         return self::$api_key;
     }
 
+    public static function loadData($request = 'checki_day', $id_user_iiko = '', $start_date = null ) {
+
+        try {
+
+            if( $start_date === null )
+            $start_date = date('Y-m-d',($_SERVER['REQUEST_TIME']-3600*24*3));
+
+            if ($request == 'checki_day') {
+
+                $dops = array(
+                    \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+                    \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC
+//                    ,
+//                \PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES UTF8'
+                );
+
+//            if (isset($_POST['typedb']) && $_POST['typedb'] == 'mysql' ) {
+//                $dops[\PDO::MYSQL_ATTR_INIT_COMMAND] = "SET NAMES 'utf8'";
+//            }
+
+                $db7 = new \PDO(
+                        self::$db_type 
+                        . ':dbname=' . ( isset(self::$db_base{1}) ? self::$db_base : '' )
+                        . ';host=' . ( isset(self::$db_host{1}) ? self::$db_host : '' )
+                        . ( isset(self::$db_port{1}) ? ';port=' . self::$db_port : '' )
+                        , ( isset(self::$db_login{1}) ? self::$db_login : '')
+                        , ( isset(self::$db_pass{1}) ? self::$db_pass : '')
+                        , $dops
+                );
+
+                //$db7->exec("SET NAMES 'utf8'");
+//                        USE Chain
+//GO
+//
+//SELECT
+//  id
+// ,lastModifyNode
+// ,revision
+// ,created
+// ,dateFrom
+// ,dateTo
+// ,department
+// ,employee
+// ,modified
+// ,lastEditor
+// ,attendanceType
+// ,closeEvent_id
+// ,comment
+// ,personalSessionEnd
+// ,personalSessionStart
+// ,salaryDepartment
+// ,role
+// ,confirmedManually
+// ,autoClosed
+//FROM dbo.EmployeeAttendanceEntry;
+//GO
+
+                $ff = $db7->prepare('SELECT '.
+                    // ' dbo.EmployeeAttendanceEntry.employee \'user\', '.
+                    ' dbo.EmployeeAttendanceEntry.personalSessionStart \'start\',
+                    dbo.EmployeeAttendanceEntry.personalSessionEnd \'end\'
+                FROM 
+                    dbo.EmployeeAttendanceEntry 
+                WHERE 
+                    employee = :id_user 
+                    AND personalSessionStart >= :dates 
+                ');
+                $ff->execute(array(
+                    // ':id_user' => 'f34d6d84-5ecb-4a40-9b03-71d03cb730cb',
+                    ':id_user' => $id_user_iiko,
+                    ':dates' => $start_date //date( 'Y-m-d', ($_SERVER['REQUEST_TIME'] - 3600 * 24 * 14 ) )
+                ));
+                //$e3 = $ff->fetchAll();
+            $e3 = [];
+            while( $e = $ff->fetch() ){
+                //$e['user'] = mb_convert_encoding($e['user'],'UTF-8','auto');
+                //$e['user'] = utf8_decode($e['user']);
+//                $e['user'] = utf8_encode($e['user']);
+//                echo '<br/>'.mb_detect_order($e['user']);
+                //$e['user'] = iconv('UCS-2LE','UTF-8',substr(base64_decode($e['user']),0,-1));
+                //$e['user'] = html_entity_decode($e['user'], ENT_COMPAT | ENT_HTML401, 'UTF-8');
+                $e3[] = $e;
+            }
+            //\f\pa($e3);
+                $db7 = $ff = null;
+
+                return $e3;
+            }
+            
+        } catch (\Exception $ex) {
+            echo '<pre>--- ' . __FILE__ . ' ' . __LINE__ . '-------'
+            . PHP_EOL . $ex->getMessage() . ' #' . $ex->getCode()
+            . PHP_EOL . $ex->getFile() . ' #' . $ex->getLine()
+            . PHP_EOL . $ex->getTraceAsString()
+            . '</pre>';
+        } catch (\PDOException $ex) {
+            echo '<pre>--- ' . __FILE__ . ' ' . __LINE__ . '-------'
+            . PHP_EOL . $ex->getMessage() . ' #' . $ex->getCode()
+            . PHP_EOL . $ex->getFile() . ' #' . $ex->getLine()
+            . PHP_EOL . $ex->getTraceAsString()
+            . '</pre>';
+        }
+    }
+
     public static function getAnswer($request, $vars = []) {
 
         $request2 = $request;
-        
+
         if (isset(self::$request_ru[$request]))
             $request = self::$request_ru[$request];
 
@@ -140,26 +250,25 @@ class Iiko {
 
         $re = self::curl_get($uri, $vars);
 
-        if (strpos($re, 'Token is expired or invalid') !== false){
+        if (strpos($re, 'Token is expired or invalid') !== false) {
 
             self::clearCashKey();
             $re = self::curl_get($uri, $vars);
 
             if (strpos($re, 'Token is expired or invalid') !== false)
-            throw new \Exception('Токен не верный или не рабочий');
-
+                throw new \Exception('Токен не верный или не рабочий');
         }
 
-        if (strpos($re, 'HTTP 404') !== false){
-            
+        if (strpos($re, 'HTTP 404') !== false) {
+
             self::getAnswer('выход');
-            
+
             throw new \Exception($re);
         }
 
         echo '<div style="background-color:yellow;padding:10px;margin-bottom:10px;max-height:300px;overflow:auto;">res<br/>' . $re . '</div>';
 
-            $re = self::compileArray( $re, $request2 );
+        $re = self::compileArray($re, $request2);
 
 //        if (function_exists('\f\pa'))
 //            \f\pa($array);
