@@ -369,7 +369,7 @@ class Iiko {
              * назначения на работу (спец)
              */
             $send_on_sp0 = \Nyos\mod\items::getItemsSimple($db, 'jobman_send_on_sp');
-            \f\pa($send_on_sp0, 2, '', '$send_on_sp');
+            //\f\pa($send_on_sp0, 2, '', '$send_on_sp');
             $send_on_sp = [];
             foreach ($send_on_sp0['data'] as $k => $v) {
                 $send_on_sp[$v['dop']['jobman']][$v['dop']['date']] = $v['dop']['sale_point'];
