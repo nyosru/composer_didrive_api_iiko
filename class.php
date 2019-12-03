@@ -304,23 +304,25 @@ class Iiko {
 //                $jobmans_onload[$v['dop']['jobman']] = 1;
 //            }
 
-            $jobmans = \Nyos\mod\items::getItemsSimple($db, '070.jobman');
-            //\f\pa($jobmans, 2, '', '$jobmans');
+            // $jobmans = \Nyos\mod\items::getItemsSimple($db, '070.jobman');
+            $jobmans = \Nyos\mod\items::getItemsSimple3($db, '070.jobman');
+            // \f\pa($jobmans, 2, '', '$jobmans');
 
             $return['loaded_checks'] = 0;
             $loaded = [];
 
-            foreach ($jobmans['data'] as $jobman_id => $jobman_data) {
+            // foreach ($jobmans['data'] as $jobman_id => $jobman_data) {
+            foreach ($jobmans as $jobman_id => $jobman_data) {
 
 //                if (!isset($jobmans_onload[$jobman_data['id']]))
 //                    continue;
 
-                if (empty($jobman_data['dop']['iiko_id']))
+                if (empty($jobman_data['iiko_id']))
                     continue;
 
                 $ar_in_sql = array(
                     // ':id_user' => 'f34d6d84-5ecb-4a40-9b03-71d03cb730cb',
-                    ':id_user' => $jobman_data['dop']['iiko_id']
+                    ':id_user' => $jobman_data['iiko_id']
                     ,
                     ':ds' => $date_start . ' 00:00:00'
                     ,
@@ -348,6 +350,7 @@ class Iiko {
                 while ($e = $ff->fetch()) {
                     $return['loaded_checks'] ++;
                     $loaded[$jobman_data['id']][] = $e;
+                    // \f\pa($e,'','','результ');
                 }
             }
 
@@ -356,8 +359,8 @@ class Iiko {
             // \f\pa($loaded, 2, '', '$loaded');
             //\f\pa($return);
             // удаляем все чеки
-            if (isset($_REQUEST['delete']) && $_REQUEST['delete'] == 'da')
-                \Nyos\mod\items::deleteItems($db, $sql, '050.chekin_checkout');
+//            if (isset($_REQUEST['delete']) && $_REQUEST['delete'] == 'da')
+//                \Nyos\mod\items::deleteItems($db, $sql, '050.chekin_checkout');
 
             /**
              * тащим чеки
@@ -370,6 +373,7 @@ class Iiko {
              */
             $send_on_sp0 = \Nyos\mod\items::getItemsSimple($db, 'jobman_send_on_sp');
             //\f\pa($send_on_sp0, 2, '', '$send_on_sp');
+            
             $send_on_sp = [];
             foreach ($send_on_sp0['data'] as $k => $v) {
                 $send_on_sp[$v['dop']['jobman']][$v['dop']['date']] = $v['dop']['sale_point'];
@@ -478,32 +482,36 @@ class Iiko {
                 }
             }
 
-
-            // \f\pa($add, 2, '', '$add');
-
             if (!empty($add)) {
+                // \f\pa($add, 2, '', '$add');
                 $return['adds_kolvo'] = sizeof($add);
-                \Nyos\mod\items::addNewSimples($db, '050.chekin_checkout', $add);
+                $return['adds'] = $add;
+                // \Nyos\mod\items::addNewSimples( $db, '050.chekin_checkout', $add );
             } else {
                 $return['adds_kolvo'] = 0;
             }
-
+            
+            // \f\pa($add_new, 2, '', '$add_new');
             if (!empty($add_new)) {
                 $return['adds_start'] = sizeof($add_new);
-                \Nyos\mod\items::addNewSimples($db, '050.chekin_checkout', $add_new);
+                $return['adds_start_ar'] = $add_new;
+                // \Nyos\mod\items::addNewSimples($db, '050.chekin_checkout', $add_new);
             } else {
                 $return['adds_start'] = 0;
             }
-
+            
+            // \f\pa($dop_add, 2, '', '$dop_add');
             if (!empty($dop_add)) {
                 $return['adds_dop_kolvo'] = sizeof($dop_add) / 2;
-                \f\db\sql_insert_mnogo($db, 'mitems-dops', $dop_add);
-                \f\pa($dop_add, 2, '', '$dop_add');
+                $return['adds_dop_kolvo_ar'] = $dop_add;
+                // \f\db\sql_insert_mnogo($db, 'mitems-dops', $dop_add);
+                // \f\pa($dop_add, 2, '', '$dop_add');
             } else {
                 $return['adds_dop_kolvo'] = 0;
             }
-
+            
             return $return;
+            
         }
         //
         catch (\Exception $ex) {
@@ -517,7 +525,7 @@ class Iiko {
 
             if ( 1 == 1 && class_exists('\\Nyos\\Msg')) {
 
-                $msg = 'Загрузка чекинов - ошибка: '.$ex->getMessage();
+                $msg = 'Загрузка чекинов - ошибка (при подключении к удалённой БД): '.$ex->getMessage();
                 
                 if (!isset($vv['admin_ajax_job'])) {
                     require_once DR . '/sites/' . \Nyos\nyos::$folder_now . '/config.php';
@@ -551,7 +559,7 @@ class Iiko {
 
             if ( 1 == 1 && class_exists('\\Nyos\\Msg')) {
 
-                $msg = 'Загрузка чекинов - ошибка: '.$ex->getMessage();
+                $msg = 'Загрузка чекинов - ошибка (при подключении к удалённой БД): '.$ex->getMessage();
                 
                 if (!isset($vv['admin_ajax_job'])) {
                     require_once DR . '/sites/' . \Nyos\nyos::$folder_now . '/config.php';
