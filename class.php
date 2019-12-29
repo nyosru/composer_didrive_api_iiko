@@ -29,6 +29,13 @@ class Iiko {
     public static $db_base = '';
     public static $db_login = '';
     public static $db_pass = '';
+    public static $file_cash = '';
+
+    /**
+     * для данных о загруженной информации о сотрудниках
+     * @var массив 
+     */
+    public static $data_iiko_people = [];
 
     /**
      * кешировать или не кешировать
@@ -74,13 +81,14 @@ class Iiko {
      */
     public static function getCashKey() {
 
-        echo '<br/>' . dirname(__FILE__) . '/iiko.cash.key';
+        // echo '<br/>' . dirname(__FILE__) . '/iiko.cash.key';
 
-        if (file_exists(dirname(__FILE__) . '/iiko.cash.key')) {
+        if (file_exists(dirname(__FILE__) . '/iiko.cash.key') && filemtime(dirname(__FILE__) . '/iiko.cash.key') > $_SERVER['REQUEST_TIME'] - 3600 * 2 ) {
             return self::$api_key = file_get_contents(dirname(__FILE__) . '/iiko.cash.key');
         } else {
             return false;
         }
+        
     }
 
     /**
@@ -99,12 +107,16 @@ class Iiko {
 
         if (self::$cash === true) {
             if (self::getCashKey() !== false) {
-
                 echo '<br/><br/>достали ключ из кеша<br/><br/>';
-
                 return self::$api_key;
             }
         }
+
+        /**
+         * если что то из конфига пустое .. то подгружаем
+         */
+        if (empty(self::$host) || empty(self::$login) || empty(self::$pass))
+            self::getConfigDbIiko();
 
         self::$api_key = self::curl_get(self::$protokol . self::$host . '/resto/api/auth', array('login' => self::$login, 'pass' => sha1(self::$pass)));
 
@@ -119,7 +131,7 @@ class Iiko {
         }
 
         //echo '<br><br>key<br/>' . self::$api_key . '<hr>';
-        echo '<div style="background-color:yellow;padding:10px;margin-bottom:10px;">key<br/>' . self::$api_key . '</div>';
+        echo '<div style="background-color:yellow;padding:10px;margin-bottom:10px;">получили key для подключения: ' . self::$api_key . '</div>';
 
         return self::$api_key;
     }
@@ -303,7 +315,6 @@ class Iiko {
 //            foreach ($jobmans_send_to_sp['data'] as $k => $v) {
 //                $jobmans_onload[$v['dop']['jobman']] = 1;
 //            }
-
             // $jobmans = \Nyos\mod\items::getItemsSimple($db, '070.jobman');
             $jobmans = \Nyos\mod\items::getItemsSimple3($db, '070.jobman');
             // \f\pa($jobmans, 2, '', '$jobmans');
@@ -373,7 +384,7 @@ class Iiko {
              */
             $send_on_sp0 = \Nyos\mod\items::getItemsSimple($db, 'jobman_send_on_sp');
             //\f\pa($send_on_sp0, 2, '', '$send_on_sp');
-            
+
             $send_on_sp = [];
             foreach ($send_on_sp0['data'] as $k => $v) {
                 $send_on_sp[$v['dop']['jobman']][$v['dop']['date']] = $v['dop']['sale_point'];
@@ -490,7 +501,7 @@ class Iiko {
             } else {
                 $return['adds_kolvo'] = 0;
             }
-            
+
             // \f\pa($add_new, 2, '', '$add_new');
             if (!empty($add_new)) {
                 $return['adds_start'] = sizeof($add_new);
@@ -499,7 +510,7 @@ class Iiko {
             } else {
                 $return['adds_start'] = 0;
             }
-            
+
             // \f\pa($dop_add, 2, '', '$dop_add');
             if (!empty($dop_add)) {
                 $return['adds_dop_kolvo'] = sizeof($dop_add) / 2;
@@ -509,13 +520,12 @@ class Iiko {
             } else {
                 $return['adds_dop_kolvo'] = 0;
             }
-            
+
             return $return;
-            
         }
         //
         catch (\Exception $ex) {
-            
+
             echo '<pre>--- ' . __FILE__ . ' ' . __LINE__ . '-------'
             . PHP_EOL . $ex->getMessage() . ' #' . $ex->getCode()
             . PHP_EOL . $ex->getFile() . ' #' . $ex->getLine()
@@ -523,10 +533,10 @@ class Iiko {
             . '</pre>';
 
 
-            if ( 1 == 1 && class_exists('\\Nyos\\Msg')) {
+            if (1 == 1 && class_exists('\\Nyos\\Msg')) {
 
-                $msg = 'Загрузка чекинов - ошибка (при подключении к удалённой БД): '.$ex->getMessage();
-                
+                $msg = 'Загрузка чекинов - ошибка (при подключении к удалённой БД): ' . $ex->getMessage();
+
                 if (!isset($vv['admin_ajax_job'])) {
                     require_once DR . '/sites/' . \Nyos\nyos::$folder_now . '/config.php';
                 }
@@ -540,27 +550,25 @@ class Iiko {
                         \Nyos\Msg::sendTelegramm($msg, $v);
                     }
                 }
-
             }
-            
+
             return \f\end3('ошибка ' . $ex->getMessage(), false);
-            
         }
         //
         catch (\PDOException $ex) {
 
             echo '<pre>--- ' . __FILE__ . ' ' . __LINE__ . '-------'
-                . PHP_EOL . $ex->getMessage() . ' #' . $ex->getCode()
-                . PHP_EOL . $ex->getFile() . ' #' . $ex->getLine()
-                . PHP_EOL . $ex->getTraceAsString()
-                . '</pre>';
+            . PHP_EOL . $ex->getMessage() . ' #' . $ex->getCode()
+            . PHP_EOL . $ex->getFile() . ' #' . $ex->getLine()
+            . PHP_EOL . $ex->getTraceAsString()
+            . '</pre>';
 
             //echo '<Br/>' . __FILE__ . ' [' . __LINE__ . ']';
 
-            if ( 1 == 1 && class_exists('\\Nyos\\Msg')) {
+            if (1 == 1 && class_exists('\\Nyos\\Msg')) {
 
-                $msg = 'Загрузка чекинов - ошибка (при подключении к удалённой БД): '.$ex->getMessage();
-                
+                $msg = 'Загрузка чекинов - ошибка (при подключении к удалённой БД): ' . $ex->getMessage();
+
                 if (!isset($vv['admin_ajax_job'])) {
                     require_once DR . '/sites/' . \Nyos\nyos::$folder_now . '/config.php';
                 }
@@ -574,7 +582,6 @@ class Iiko {
                         \Nyos\Msg::sendTelegramm($msg, $v);
                     }
                 }
-
             }
 
             return \f\end3('ошибка ' . $ex->getMessage(), false);
@@ -603,6 +610,7 @@ class Iiko {
 
         $re = self::curl_get($uri, $vars);
 
+        // если ключ уже не работает, то забываем его
         if (strpos($re, 'Token is expired or invalid') !== false) {
 
             self::clearCashKey();
@@ -613,9 +621,7 @@ class Iiko {
         }
 
         if (strpos($re, 'HTTP 404') !== false) {
-
             self::getAnswer('выход');
-
             throw new \Exception($re);
         }
 
@@ -627,6 +633,288 @@ class Iiko {
 //            \f\pa($array);
 
         return $re;
+    }
+
+    /**
+     * запись того что добыли тут loadIikoPeople()
+     */
+    public static function saveIikoPeople($db, $data, $mod_jobman = '070.jobman') {
+
+        $re = [
+            'kolvo_in' => sizeof($data)
+            , 'kolvo_edit_dop' => 0
+        ];
+
+        $jm = \Nyos\mod\items::getItemsSimple3($db, $mod_jobman);
+        // \f\pa($jm, 2, '', 'jm');
+
+        $re['kolvo_now'] = 0;
+
+        $keys = [];
+
+        foreach ($jm as $k => $v) {
+            if (!empty($v['iiko_id'])) {
+                $keys[$v['iiko_id']] = $k;
+                $re['kolvo_now'] ++;
+            }
+        }
+
+        $re['kolvo_old'] = $re['kolvo_new'] = 0;
+        $nn = 0;
+
+        $data_new_option = [];
+
+        foreach ($data as $k => $v) {
+
+            if (!isset($keys[$v['id']])) {
+                // \f\pa($v);
+                $re['kolvo_new'] ++;
+
+//                $d1 = [];
+//                foreach ($v as $k1 => $v1) {
+//                    if ($k1 == 'id' || $k1 == 'name') {
+//                        $d1['iiko_' . $k1] = $v1;
+//                    } elseif (is_array($v1)) {
+//                        foreach ($v1 as $k2 => $v2) {
+//                            $d1[$k1 . '_' . $k2] = $v2;
+//                        }
+//                    } else {
+//                        $d1[$k1] = $v1;
+//                    }
+//                }
+//
+//                $data_new[] = $d1;
+
+                $data_new[] = self::convertIikoPeopleAr($v);
+            }
+            // если есть id в имеющихся записях 
+            // формируем массив $data_new_option с новыми доп параметрами
+            else {
+
+                foreach ($v as $k3 => $v3) {
+
+                    if ($k3 == 'birthday')
+                        continue;
+
+                    if ($k3 == 'name' || $k3 == 'id') {
+                        $k3_loc = 'iiko_' . $k3;
+                    } else {
+                        $k3_loc = $k3;
+                    }
+
+                    if (
+                            !isset($jm[$keys[$v['id']]][$k3_loc]) || (
+                            isset($jm[$keys[$v['id']]][$k3_loc]) && $jm[$keys[$v['id']]][$k3_loc] != $v3
+                            )
+                    ) {
+
+                        // \f\pa($jm[$keys[$v['id']]],2,'','уже есть в базе' )
+                        // echo '<br/>' . __LINE__ . ' ' . $k3 . ' [' . $jm[$keys[$v['id']]][$k3_loc] . '] != [' . $v[$k3] . ']';
+
+                        if ($nn <= 50 && 1 == 1 && ( $k3 == 'name' || $k3 == 'cellPhone' || $k3 == 'phone' || $k3 == 'snils' || $k3 == 'address' )) {
+
+//                            echo '<table><tr><td>';
+//                            \f\pa($jm[$keys[$v['id']]], '', '', 'data3');
+//                            echo '</td><td>';
+//                            \f\pa($v, '', '', 'v3');
+//                            echo '</td></tr></table>';
+                            // если тут нет а там есть значение, добавляем новое
+                            if (empty($jm[$keys[$v['id']]][$k3_loc]) && !empty($v3)) {
+
+                                //echo '<br/>' . __LINE__ . ' ' . $k3 . ' добавляем [' . ( is_string($v[$k3]) ? $v[$k3] : 'ar' ) . ']';
+
+                                $data_new_option[$jm[$keys[$v['id']]]['id']][$k3_loc] = $v3;
+                                $re['kolvo_edit_dop'] ++;
+
+//                                echo '<table><tr><td>';
+//                                \f\pa($jm[$keys[$v['id']]]);
+//                                echo '</td><td>';
+//                                \f\pa($v);
+//                                echo '</td></tr></table>';
+                            }
+                            // если и там и там значения есть но не сходятся
+                            elseif (!empty($jm[$keys[$v['id']]][$k3_loc]) && !empty($v3)) {
+
+//                                echo '<br/>' . __LINE__ . ' ' . $k3 . ' [' . (!empty($jm[$keys[$v['id']]][$k3_loc]) ?
+//                                        ( is_string($jm[$keys[$v['id']]][$k3_loc]) ? $jm[$keys[$v['id']]][$k3_loc] : 'ar' ) : 'empty' ) . '] != [' . ( is_string($v[$k3]) ? $v[$k3] : 'ar' ) . ']';
+//                                echo '<table><tr><td>';
+//                                \f\pa($jm[$keys[$v['id']]]);
+//                                echo '</td><td>';
+//                                \f\pa($v);
+//                                echo '</td></tr></table>';
+
+                                $data_new_option[$jm[$keys[$v['id']]]['id']][$k3_loc] = $v3;
+                                $re['kolvo_edit_dop'] ++;
+                            }
+                            $nn++;
+                        }
+
+                        //
+                        elseif (1 == 2) {
+                            echo '<br/>' . __LINE__ . ' ' . $k3 . ' [' . (!empty($jm[$keys[$v['id']]][$k3_loc]) ?
+                                    ( is_string($jm[$keys[$v['id']]][$k3_loc]) ? $jm[$keys[$v['id']]][$k3_loc] : 'ar' ) : 'empty' ) . '] != [' .
+                            (
+                            empty($v3) ?
+                                    'empty' :
+                                    ( is_string($v3) ? $v3 : 'ar' )
+                            )
+                            . ']';
+                        }
+                    }
+                }
+
+                $re['kolvo_old'] ++;
+                unset($data[$k]);
+            }
+        }
+
+        if (!empty($data_new_option)) {
+            \f\pa($data_new_option, 2, '', '$data_new_option');
+            \Nyos\mod\items::saveNewDop($db, $data_new_option);
+        }
+
+        if (!empty($data_new)) {
+            \f\pa($data_new, 2, '', 'new data');
+            \Nyos\mod\items::addNewSimples($db, $mod_jobman, $data_new);
+        }
+
+        return $re;
+    }
+
+    /**
+     * приводим массив данных из иико к норм виду для добавления в БД
+     * один пользователь
+     * @param type $ar
+     * @return type
+     */
+    public static function convertIikoPeopleAr($v) {
+
+        $d1 = [];
+        foreach ($v as $k1 => $v1) {
+            if ($k1 == 'id' || $k1 == 'name') {
+                $d1['iiko_' . $k1] = $v1;
+            } elseif (is_array($v1)) {
+                foreach ($v1 as $k2 => $v2) {
+                    $d1[$k1 . '_' . $k2] = $v2;
+                }
+            } else {
+                $d1[$k1] = $v1;
+            }
+        }
+
+        return $d1;
+    }
+
+    /**
+     * загрузка с удалённой БД информации о работниках
+     * @return type
+     */
+    public static function loadIikoPeople() {
+
+        try {
+
+            if (empty(self::$file_cash))
+                self::$file_cash = DR . DS . 'sites' . DS . \Nyos\Nyos::$folder_now . DS . 'people.iiko';
+
+            $re = ['file_cash' => self::$file_cash];
+
+            if (self::$cash === true && file_exists(self::$file_cash) && filemtime(self::$file_cash) > $_SERVER['REQUEST_TIME'] - 3600 * 4) {
+
+                // $file_data = 'yes';
+                $re['file_cash_est'] = 'da';
+                $re['file_cash_time'] = date('Y-m-d H:i:s', filemtime(self::$file_cash));
+
+                self::$data_iiko_people = $re['data'] = json_decode(file_get_contents(self::$file_cash), true);
+
+                return $re;
+            } else {
+
+                $re['file_cash_est'] = 'net';
+            }
+
+            echo '<hr>подключаемся к айке, получаем данные<hr>';
+
+            self::$data_iiko_people = $re['data'] = self::getAnswer('сотрудники');
+
+            echo '<div style="background-color:#efefef;border:1px;padding:10px;margin-bottom:10px;max-height:300px;overflow:auto;">';
+            \f\pa($re['data'], 2, '', 'данные рез');
+            echo '</div>';
+
+            echo '<hr>выходим из айки<hr>';
+            $re2 = self::getAnswer('выход');
+
+            echo '<div style="background-color:#efefef;border:1px;padding:10px;margin-bottom:10px;max-height:300px;overflow:auto;">';
+            \f\pa($re2, 2, '', 'выход рез');
+            echo '</div>';
+
+
+            if (class_exists('\\Nyos\\Msg')) {
+                echo 'Послали отчёт об операции в телеграм';
+                $msg = 'Загрузили данные с айки по пользователям ( ' . sizeof($re['data']) . ' записей )';
+                \Nyos\Msg::sendTelegramm($msg, null, 1);
+
+                if (!empty($vv['admin_auerific'])) {
+                    foreach ($vv['admin_auerific'] as $k => $v) {
+                        \Nyos\Msg::sendTelegramm($msg, $v);
+                    }
+                }
+            } else {
+                echo 'НЕ Послали отчёт об операции в телеграм';
+            }
+
+            // \f\pa($re2);
+
+            file_put_contents(self::$file_cash, json_encode($re['data']));
+
+            // $re = \Nyos\api\Iiko::compileArray($e,'сотрудники');
+            // \Nyos\api\Iiko::$cash = true;
+
+            return $re;
+        } catch (\PDOException $ex) {
+
+            echo '<pre>--- ' . __FILE__ . ' ' . __LINE__ . '-------'
+            . PHP_EOL . $ex->getMessage() . ' #' . $ex->getCode()
+            . PHP_EOL . $ex->getFile() . ' #' . $ex->getLine()
+            . PHP_EOL . $ex->getTraceAsString()
+            . '</pre>';
+
+
+            return ['status' => 'ошибка'];
+        } catch (\Exception $ex) {
+
+            echo '<pre>--- ' . __FILE__ . ' ' . __LINE__ . '-------'
+            . PHP_EOL . $ex->getMessage() . ' #' . $ex->getCode()
+            . PHP_EOL . $ex->getFile() . ' #' . $ex->getLine()
+            . PHP_EOL . $ex->getTraceAsString()
+            . '</pre>';
+
+
+            return ['status' => 'ошибка'];
+        }
+    }
+
+    /**
+     * ищем данныев меню для коннекта с базой ИИКО
+     */
+    public static function getConfigDbIiko() {
+
+        foreach (\Nyos\Nyos::$menu as $k => $v) {
+            if (!empty($v['server_iiko'])) {
+
+                // \f\pa($v['server_iiko'],'','','serv iiko');
+
+                if (!empty($v['server_iiko']['host']))
+                    \Nyos\api\Iiko::$host = $v['server_iiko']['host'];
+
+                if (!empty($v['server_iiko']['login']))
+                    \Nyos\api\Iiko::$login = $v['server_iiko']['login'];
+
+                if (!empty($v['server_iiko']['pass']))
+                    \Nyos\api\Iiko::$pass = $v['server_iiko']['pass'];
+
+                return;
+            }
+        }
     }
 
     /**
@@ -696,29 +984,36 @@ class Iiko {
      */
     public static function compileArray(string $xml, $type = '') {
 
-        $xml2 = simplexml_load_string($xml, "SimpleXMLElement", LIBXML_NOCDATA);
-        $json = json_encode($xml2);
-        $array = json_decode($json, TRUE);
-
-        if ($type == 'сотрудники') {
-
-            $re = [];
-
-            foreach ($array['employee'] as $k => $v) {
-                $re[] = $v;
-            }
-        } elseif ($type == 'corporation/departments/') {
-
-            $re = [];
-
-            foreach ($array['corporateItemDto'] as $k => $v) {
-                $re[] = $v;
-            }
-        } else {
-            return $array;
+        // \f\pa($type);
+        //
+        if ($type == 'выход' || $type == 'exit') {
+            return $xml;
         }
+        // если xml
+        else {
 
-        return $re;
+            $xml2 = simplexml_load_string($xml, "SimpleXMLElement", LIBXML_NOCDATA);
+            $json = json_encode($xml2);
+            $array = json_decode($json, TRUE);
+
+            $re = [];
+
+
+            if ($type == 'сотрудники') {
+                foreach ($array['employee'] as $k => $v) {
+                    $re[] = $v;
+                }
+            }
+            //
+            elseif ($type == 'corporation/departments/') {
+                foreach ($array['corporateItemDto'] as $k => $v) {
+                    $re[] = $v;
+                }
+            } else {
+                return $array;
+            }
+            return $re;
+        }
     }
 
 }
