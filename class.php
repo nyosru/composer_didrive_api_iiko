@@ -6,6 +6,9 @@
 
 namespace Nyos\api;
 
+ini_set("max_execution_time", 120);
+
+
 if (!defined('IN_NYOS_PROJECT'))
     throw new \Exception('Сработала защита от розовых хакеров, обратитесь к администрратору');
 
@@ -83,12 +86,11 @@ class Iiko {
 
         // echo '<br/>' . dirname(__FILE__) . '/iiko.cash.key';
 
-        if (file_exists(dirname(__FILE__) . '/iiko.cash.key') && filemtime(dirname(__FILE__) . '/iiko.cash.key') > $_SERVER['REQUEST_TIME'] - 3600 * 2 ) {
+        if (file_exists(dirname(__FILE__) . '/iiko.cash.key') && filemtime(dirname(__FILE__) . '/iiko.cash.key') > $_SERVER['REQUEST_TIME'] - 3600 * 2) {
             return self::$api_key = file_get_contents(dirname(__FILE__) . '/iiko.cash.key');
         } else {
             return false;
         }
-        
     }
 
     /**
@@ -256,6 +258,11 @@ class Iiko {
      */
     public static function loadChecksFromServer($db, string $start_date, $date_fin = null) {
 
+        /**
+         * сколько сек берём на запросы к серверу ИИКО
+         */
+        $sec_on_load = 25;
+
         try {
 
             $date_start = date('Y-m-d', strtotime($start_date));
@@ -263,16 +270,21 @@ class Iiko {
             if ($date_fin === null)
                 $date_fin = date('Y-m-d', $_SERVER['REQUEST_TIME']);
 
+            // \f\timer_start(5);
+            // \Nyos\mod\items::$show_sql = true;
+            \Nyos\mod\items::$where2dop = ' AND ( midop.name = \'iiko_id\' OR midop.name = \'iiko_checks_last_loaded\' ) ';
+            $jobmans = \Nyos\mod\items::get($db, \Nyos\mod\JobDesc::$mod_jobman);
+            //\f\pa($jobmans,2,'','$jobmans');
+            usort($jobmans, "\\f\\sort_ar__iiko_checks_last_loaded__desc");
+            //\f\pa($jobmans,2,'','$jobmans');
+            // echo \f\timer_stop(5);
+            // exit;
+
+
             $dops = array(
                 \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
                 \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC
-//                    ,
-//                \PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES UTF8'
             );
-
-//            if (isset($_POST['typedb']) && $_POST['typedb'] == 'mysql' ) {
-//                $dops[\PDO::MYSQL_ATTR_INIT_COMMAND] = "SET NAMES 'utf8'";
-//            }
 
             $db7 = new \PDO(
                     self::$db_type
@@ -284,52 +296,49 @@ class Iiko {
                     , $dops
             );
 
-            //$db7->exec("SET NAMES 'utf8'");
-//                        USE Chain
-//GO
-//
-//SELECT
-//  id
-// ,lastModifyNode
-// ,revision
-// ,created
-// ,dateFrom
-// ,dateTo
-// ,department
-// ,employee
-// ,modified
-// ,lastEditor
-// ,attendanceType
-// ,closeEvent_id
-// ,comment
-// ,personalSessionEnd
-// ,personalSessionStart
-// ,salaryDepartment
-// ,role
-// ,confirmedManually
-// ,autoClosed
-//FROM dbo.EmployeeAttendanceEntry;
-//GO
-            //$jobmans_send_to_sp = \Nyos\mod\items::getItemsSimple($db, 'jobman_send_on_sp');
-            //\f\pa($jobmans_send_to_sp, 2, '', '$jobmans_send_to_sp');
-//            foreach ($jobmans_send_to_sp['data'] as $k => $v) {
-//                $jobmans_onload[$v['dop']['jobman']] = 1;
-//            }
-            // $jobmans = \Nyos\mod\items::getItemsSimple($db, '070.jobman');
-            $jobmans = \Nyos\mod\items::getItemsSimple3($db, '070.jobman');
-            // \f\pa($jobmans, 2, '', '$jobmans');
-
             $return['loaded_checks'] = 0;
             $loaded = [];
 
-            // foreach ($jobmans['data'] as $jobman_id => $jobman_data) {
+            // старт времени
+            \f\timer_start(311);
+
+            /**
+             * массив для сохранения дата время когда последний раз грузили сотрудника чеки с ИИКО
+             */
+            $new_dops_jm = [];
+
+            $return['loaded_people'] = 0;
+
             foreach ($jobmans as $jobman_id => $jobman_data) {
 
-//                if (!isset($jobmans_onload[$jobman_data['id']]))
-//                    continue;
+// грузим и проверяем только тех кого не проверяли последние 6 часов                
+                if (!empty($jobman_data['iiko_checks_last_loaded']) && $jobman_data['iiko_checks_last_loaded'] >= date('Y-m-d H:I:s', $_SERVER['REQUEST_TIME'] - 3600 * 6)){
+                //if (!empty($jobman_data['iiko_checks_last_loaded']) && $jobman_data['iiko_checks_last_loaded'] >= date('Y-m-d H:I:s', $_SERVER['REQUEST_TIME'] - 180 )){
+                    continue;
+                }
+
+//                if ( !empty($jobman_data['iiko_checks_last_loaded']) ){
+//                echo '<br/><br/>'.$jobman_data['iiko_checks_last_loaded'];
+//                echo '<br/>'.date('Y-m-d H:I:s', $_SERVER['REQUEST_TIME'] - 3600 * 6);
+//                }
+
+                $tt = \f\timer_stop(311, 'ar');
+                // echo '<Br/>' . $tt['sec'];
+
+                if (isset($tt['sec']) && $tt['sec'] > $sec_on_load)
+                    break;
 
                 if (empty($jobman_data['iiko_id']))
                     continue;
+
+                $return['loaded_people'] ++;
+
+                // \f\pa( $jobman_data,'','','$jobman_data' );
+//                if (!isset($jobmans_onload[$jobman_data['id']]))
+//                    continue;
+                // доп параметр в список сотрудников, чтобы всегда грузили давно не обновлённые чеки
+                $new_dops_jm[$jobman_data['id']]['iiko_checks_last_loaded'] = date('Y-m-d H:I:s');
+
 
                 $ar_in_sql = array(
                     // ':id_user' => 'f34d6d84-5ecb-4a40-9b03-71d03cb730cb',
@@ -365,30 +374,35 @@ class Iiko {
                 }
             }
 
+
             $db7 = $ff = null;
 
-            // \f\pa($loaded, 2, '', '$loaded');
-            //\f\pa($return);
-            // удаляем все чеки
-//            if (isset($_REQUEST['delete']) && $_REQUEST['delete'] == 'da')
-//                \Nyos\mod\items::deleteItems($db, $sql, '050.chekin_checkout');
+            //echo 'dddddddd '.( $return['loaded_people'] ?? '23' );
+
+            if ($return['loaded_people'] == 0) {
+                return \f\end3('нет людей для проверки, все проверены', false, $return);
+            }
+
+
 
             /**
              * тащим чеки
              */
-            $checks = \Nyos\mod\items::getItemsSimple($db, '050.chekin_checkout');
-            //\f\pa($checks, 2, '', '$checks');
+            \Nyos\mod\items::$join_where = ' INNER JOIN `mitems-dops` mid '
+                    . ' ON mid.id_item = mi.id '
+                    . ' AND mid.name = \'start\' '
+                    . ' AND mid.value_datetime >= :ds1 '
+                    . ' AND mid.value_datetime <= :ds2 '
+            ;
 
-            /**
-             * назначения на работу (спец)
-             */
-            $send_on_sp0 = \Nyos\mod\items::getItemsSimple($db, 'jobman_send_on_sp');
-            //\f\pa($send_on_sp0, 2, '', '$send_on_sp');
+            \Nyos\mod\items::$var_ar_for_1sql[':ds1'] = date('Y-m-d 05:00:00', strtotime($date_start));
+            \Nyos\mod\items::$var_ar_for_1sql[':ds2'] = date('Y-m-d 05:00:00', strtotime($date_fin . ' +1 day '));
+            //\f\pa(\Nyos\mod\items::$var_ar_for_1sql);
 
-            $send_on_sp = [];
-            foreach ($send_on_sp0['data'] as $k => $v) {
-                $send_on_sp[$v['dop']['jobman']][$v['dop']['date']] = $v['dop']['sale_point'];
-            }
+            $checks = \Nyos\mod\items::get($db, \Nyos\mod\JobDesc::$mod_checks);
+            // \f\pa($checks, 2, '', '$checks');
+            // echo '<Br/>подгружено чеков: '.sizeof($checks);
+            $return['loaded_job_checks'] = sizeof($checks);
 
             $add_new = $dop_add = $add = [];
 
@@ -406,20 +420,21 @@ class Iiko {
 
                     $checked = null;
 
-                    foreach ($checks['data'] as $k => $check) {
-                        if (isset($check['dop']['jobman']) && $check['dop']['jobman'] == $jobman) {
+                    foreach ($checks as $k => $check) {
+                        if (isset($check['jobman']) && $check['jobman'] == $jobman) {
 
-                            if (isset($check['dop']['start'])) {
+                            if (isset($check['start'])) {
                                 //$check_start = $check['dop']['start'];
 
-                                if ($check['dop']['start'] == $v1['start']) {
+                                if ($check['start'] == $v1['start']) {
+
                                     $check_id = $check['id'];
                                     $checked = 'start';
 
-                                    if (isset($check['dop']['fin'])) {
+                                    if (isset($check['fin'])) {
                                         //$check_fin = $check['dop']['fin'];
 
-                                        if ($check['dop']['fin'] == $v1['end']) {
+                                        if ($check['fin'] == $v1['end']) {
                                             //$check_id = $check['id'];
                                             $checked = 'fin';
                                         }
@@ -432,18 +447,17 @@ class Iiko {
                     }
 
 
-                    echo '</br>';
-                    echo $check_id ?? '--';
-
-//                    echo '</br>';
-//                    echo $new_start ?? '--';
-//                    echo '</br>';
-//                    echo $new_fin ?? '--';
+                    if (!empty($_REQUEST['show_dops'])) {
+                        // echo '</br>чек id : ' . ( $check_id ?? '--' );
+                        $return['job_checks'][$check_id] = '';
+                    }
 
                     if ($checked == 'start') {
 
-                        echo '</br>';
-                        echo 'старт есть, если есть финиш то его добавим';
+                        if (!empty($_REQUEST['show_dops'])) {
+                            // echo '</br>старт есть, если есть финиш то его добавим';
+                            $return['job_checks'][$check_id] .= '</br>старт есть, если есть финиш то его добавим';
+                        }
 
                         if (!empty($new_fin)) {
                             $dop_add[] = array(
@@ -464,11 +478,16 @@ class Iiko {
                         }
                     } elseif ($checked == 'fin') {
 
-                        echo 'всё есть';
+                        if (!empty($_REQUEST['show_dops'])) {
+                            //echo 'всё есть';
+                            $return['job_checks'][$check_id] .= 'всё есть';
+                        }
                     } else {
 
-                        echo '</br>';
-                        echo 'нет данных, нужно добавить';
+                        if (!empty($_REQUEST['show_dops'])) {
+                            // echo '</br>нет данных, нужно добавить';
+                            $return['job_checks'][$check_id] .= '</br>нет данных, нужно добавить';
+                        }
 
                         $aa = array(
                             'jobman' => $jobman
@@ -485,8 +504,8 @@ class Iiko {
                         /**
                          * ищем в спец назначениях
                          */
-                        if (isset($send_on_sp[$jobman][substr($new_start, 0, 9)]))
-                            $aa['sale_point'] = $send_on_sp[$jobman][substr($new_start, 0, 9)];
+//                        if (isset($send_on_sp[$jobman][substr($new_start, 0, 9)]))
+//                            $aa['sale_point'] = $send_on_sp[$jobman][substr($new_start, 0, 9)];
 
                         $add[] = $aa;
                     }
@@ -520,6 +539,10 @@ class Iiko {
             } else {
                 $return['adds_dop_kolvo'] = 0;
             }
+
+
+            // подгружаем дата время в последнюю загрузку чеков из ИИКО
+            \Nyos\mod\items::saveNewDop($db, $new_dops_jm);
 
             return $return;
         }
@@ -769,12 +792,12 @@ class Iiko {
         }
 
         if (!empty($data_new_option)) {
-            \f\pa($data_new_option, 2, '', '$data_new_option');
+            // \f\pa($data_new_option, 2, '', '$data_new_option');
             \Nyos\mod\items::saveNewDop($db, $data_new_option);
         }
 
         if (!empty($data_new)) {
-            \f\pa($data_new, 2, '', 'new data');
+            // \f\pa($data_new, 2, '', 'new data');
             \Nyos\mod\items::addNewSimples($db, $mod_jobman, $data_new);
         }
 
