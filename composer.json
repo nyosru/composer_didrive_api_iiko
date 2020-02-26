@@ -2,7 +2,7 @@
     "name": "didrive_api/iiko",
     "type": "library",
     "description": "работа с АПИ ИИКО",
-    "version": "1.0.1",
+    "version": "1.0.2",
 
     "keywords": [
         "didrive",
@@ -22,7 +22,9 @@
     "homepage": "https://uralweb.info",
     "license": "MIT",
     "require": {
-        "php": ">=7.1.0"
+        "php": ">=7.1.0",
+        "didrive/f": ">=2.3.3",
+        "didrive_mod/jobdesc" : ">=1.5"
     }
     ,
     "autoload": {

@@ -263,6 +263,9 @@ class Iiko {
          */
         $sec_on_load = 25;
 
+        $one_date_scan = (!empty($_REQUEST['start']) && !empty($_REQUEST['finish']) && $_REQUEST['start'] == $_REQUEST['finish']) ? date('Y-m-d', strtotime($_REQUEST['start'])) : null;
+
+
         try {
 
             $date_start = date('Y-m-d', strtotime($start_date));
@@ -312,11 +315,15 @@ class Iiko {
             foreach ($jobmans as $jobman_id => $jobman_data) {
 
 // грузим и проверяем только тех кого не проверяли последние 6 часов                
-                if (!empty($jobman_data['iiko_checks_last_loaded']) && $jobman_data['iiko_checks_last_loaded'] >= date('Y-m-d H:I:s', $_SERVER['REQUEST_TIME'] - 3600 * 6)){
-                //if (!empty($jobman_data['iiko_checks_last_loaded']) && $jobman_data['iiko_checks_last_loaded'] >= date('Y-m-d H:I:s', $_SERVER['REQUEST_TIME'] - 180 )){
-                    continue;
-                }
 
+                if (!empty($one_date_scan)) {
+                    
+                } else {
+                    if (!empty($jobman_data['iiko_checks_last_loaded']) && $jobman_data['iiko_checks_last_loaded'] >= date('Y-m-d H:I:s', $_SERVER['REQUEST_TIME'] - 3600 * 6)) {
+                        //if (!empty($jobman_data['iiko_checks_last_loaded']) && $jobman_data['iiko_checks_last_loaded'] >= date('Y-m-d H:I:s', $_SERVER['REQUEST_TIME'] - 180 )){
+                        continue;
+                    }
+                }
 //                if ( !empty($jobman_data['iiko_checks_last_loaded']) ){
 //                echo '<br/><br/>'.$jobman_data['iiko_checks_last_loaded'];
 //                echo '<br/>'.date('Y-m-d H:I:s', $_SERVER['REQUEST_TIME'] - 3600 * 6);
@@ -331,7 +338,7 @@ class Iiko {
                 if (empty($jobman_data['iiko_id']))
                     continue;
 
-                $return['loaded_people'] ++;
+                $return['loaded_people']++;
 
                 // \f\pa( $jobman_data,'','','$jobman_data' );
 //                if (!isset($jobmans_onload[$jobman_data['id']]))
@@ -340,20 +347,31 @@ class Iiko {
                 $new_dops_jm[$jobman_data['id']]['iiko_checks_last_loaded'] = date('Y-m-d H:I:s');
 
 
-                $ar_in_sql = array(
-                    // ':id_user' => 'f34d6d84-5ecb-4a40-9b03-71d03cb730cb',
-                    ':id_user' => $jobman_data['iiko_id']
-                    ,
-                    ':ds' => $date_start . ' 00:00:00'
-                    ,
-                    ':df' => $date_fin . ' 23:59:00'
-                );
 
-                $sql = 'SELECT ' .
+                if (!empty($one_date_scan)) {
+                    $ar_in_sql = array(
+                        // ':id_user' => 'f34d6d84-5ecb-4a40-9b03-71d03cb730cb',
+                        ':id_user' => $jobman_data['iiko_id'],
+                        ':ds' => $one_date_scan . ' 05:00:00',
+                        ':df' => date('Y-m-d 03:00:00', strtotime($one_date_scan . ' +1 day'))
+                    );
+                } else {
+                    $ar_in_sql = array(
+                        // ':id_user' => 'f34d6d84-5ecb-4a40-9b03-71d03cb730cb',
+                        ':id_user' => $jobman_data['iiko_id'],
+                        ':ds' => $date_start . ' 00:00:00',
+                        ':df' => $date_fin . ' 23:59:00'
+                    );
+                }
+
+                $sql = 'SELECT '
+
+                        // . '*, ' .
                         // ' dbo.EmployeeAttendanceEntry.employee \'user\', '.
-                        ' dbo.EmployeeAttendanceEntry.personalSessionStart \'start\',
-                    dbo.EmployeeAttendanceEntry.personalSessionEnd \'end\'
-                FROM 
+                        . ' dbo.EmployeeAttendanceEntry.personalSessionStart \'start\' '
+                        . ' , '
+                        . ' dbo.EmployeeAttendanceEntry.personalSessionEnd \'end\' '
+                        . ' FROM 
                     dbo.EmployeeAttendanceEntry 
                 WHERE '
                         . ' employee = :id_user '
@@ -368,12 +386,11 @@ class Iiko {
 
                 $ff->execute($ar_in_sql);
                 while ($e = $ff->fetch()) {
-                    $return['loaded_checks'] ++;
+                    $return['loaded_checks']++;
                     $loaded[$jobman_data['id']][] = $e;
-                    // \f\pa($e,'','','результ');
+                    // \f\pa($e, '', '', 'результ');
                 }
             }
-
 
             $db7 = $ff = null;
 
@@ -382,8 +399,6 @@ class Iiko {
             if ($return['loaded_people'] == 0) {
                 return \f\end3('нет людей для проверки, все проверены', false, $return);
             }
-
-
 
             /**
              * тащим чеки
@@ -668,17 +683,25 @@ class Iiko {
             , 'kolvo_edit_dop' => 0
         ];
 
-        $jm = \Nyos\mod\items::getItemsSimple3($db, $mod_jobman);
+        // $jm = \Nyos\mod\items::getItemsSimple3($db, $mod_jobman);
+        $jm = \Nyos\mod\items::get($db, \Nyos\mod\JobDesc::$mod_jobman);
         // \f\pa($jm, 2, '', 'jm');
+//        foreach ($jm as $k => $v3) {
+//            if ( $v3['iiko_id'] == 'c0db03ac-ba5c-4f4d-a8a4-7f60a322a02a') {
+//                \f\pa($v3, '', '', 'one jm');
+//                break;
+//            }
+//        }
+        // die('<br/>#' . __LINE__ . ' ' . __FILE__);
+        // exit;
 
         $re['kolvo_now'] = 0;
-
         $keys = [];
 
         foreach ($jm as $k => $v) {
             if (!empty($v['iiko_id'])) {
                 $keys[$v['iiko_id']] = $k;
-                $re['kolvo_now'] ++;
+                $re['kolvo_now']++;
             }
         }
 
@@ -687,11 +710,20 @@ class Iiko {
 
         $data_new_option = [];
 
+        // die('<br/>#' . __LINE__ . ' ' . __FILE__);
+
         foreach ($data as $k => $v) {
 
+//            if ($v['id'] != 'c0db03ac-ba5c-4f4d-a8a4-7f60a322a02a')
+//                continue;
+//
+//            \f\pa($v);
+//            die();
+            // если новый сотрудник
             if (!isset($keys[$v['id']])) {
+
                 // \f\pa($v);
-                $re['kolvo_new'] ++;
+                $re['kolvo_new']++;
 
 //                $d1 = [];
 //                foreach ($v as $k1 => $v1) {
@@ -719,6 +751,11 @@ class Iiko {
                     if ($k3 == 'birthday')
                         continue;
 
+//                    if ($k3 == 'id' && $v3 == 'c0db03ac-ba5c-4f4d-a8a4-7f60a322a02a')
+//                        \f\pa($v);
+//                    if ($k3 == 'name' || $k3 == 'id')
+//                        echo '<br/>'.$k3.' - '.$v3;
+
                     if ($k3 == 'name' || $k3 == 'id') {
                         $k3_loc = 'iiko_' . $k3;
                     } else {
@@ -731,23 +768,30 @@ class Iiko {
                             )
                     ) {
 
+//                        if ($k3 == 'id' && $v3 == 'c0db03ac-ba5c-4f4d-a8a4-7f60a322a02a')
+//                            \f\pa($jm[$keys[$v['id']]]);
                         // \f\pa($jm[$keys[$v['id']]],2,'','уже есть в базе' )
                         // echo '<br/>' . __LINE__ . ' ' . $k3 . ' [' . $jm[$keys[$v['id']]][$k3_loc] . '] != [' . $v[$k3] . ']';
 
-                        if ($nn <= 50 && 1 == 1 && ( $k3 == 'name' || $k3 == 'cellPhone' || $k3 == 'phone' || $k3 == 'snils' || $k3 == 'address' )) {
-
+                        if ($nn <= 50 && 1 == 1) {
+//                        if ( $nn <= 50 && 1 == 1 && (
+//                                $k3 == 'name' ||
+//                                $k3 == 'firstName' ||
+//                                $k3 == 'middleName' ||
+//                                $k3 == 'lastName' ||
+//                                $k3 == 'cellPhone' || $k3 == 'phone' || $k3 == 'snils' || $k3 == 'address' )) 
 //                            echo '<table><tr><td>';
 //                            \f\pa($jm[$keys[$v['id']]], '', '', 'data3');
 //                            echo '</td><td>';
 //                            \f\pa($v, '', '', 'v3');
 //                            echo '</td></tr></table>';
                             // если тут нет а там есть значение, добавляем новое
-                            if (empty($jm[$keys[$v['id']]][$k3_loc]) && !empty($v3)) {
+                            if (is_string($v3) && empty($jm[$keys[$v['id']]][$k3_loc]) && !empty($v3)) {
 
                                 //echo '<br/>' . __LINE__ . ' ' . $k3 . ' добавляем [' . ( is_string($v[$k3]) ? $v[$k3] : 'ar' ) . ']';
 
                                 $data_new_option[$jm[$keys[$v['id']]]['id']][$k3_loc] = $v3;
-                                $re['kolvo_edit_dop'] ++;
+                                $re['kolvo_edit_dop']++;
 
 //                                echo '<table><tr><td>';
 //                                \f\pa($jm[$keys[$v['id']]]);
@@ -756,8 +800,10 @@ class Iiko {
 //                                echo '</td></tr></table>';
                             }
                             // если и там и там значения есть но не сходятся
-                            elseif (!empty($jm[$keys[$v['id']]][$k3_loc]) && !empty($v3)) {
+                            elseif (!empty($jm[$keys[$v['id']]][$k3_loc]) && !empty($v3) && is_string($v3) && $jm[$keys[$v['id']]][$k3_loc] != $v3) {
 
+//                                echo '<br/>#' . __LINE__ . ( $jm[$keys[$v['id']]][$k3_loc] ?? 'x' ) && ( $v3 ?? 'x' );
+//                                echo '<br/>#' . __LINE__ . $v['id'] . ' ' . ( $k3_loc ?? 'x' ) && ( $v3 ?? 'x' );
 //                                echo '<br/>' . __LINE__ . ' ' . $k3 . ' [' . (!empty($jm[$keys[$v['id']]][$k3_loc]) ?
 //                                        ( is_string($jm[$keys[$v['id']]][$k3_loc]) ? $jm[$keys[$v['id']]][$k3_loc] : 'ar' ) : 'empty' ) . '] != [' . ( is_string($v[$k3]) ? $v[$k3] : 'ar' ) . ']';
 //                                echo '<table><tr><td>';
@@ -767,7 +813,7 @@ class Iiko {
 //                                echo '</td></tr></table>';
 
                                 $data_new_option[$jm[$keys[$v['id']]]['id']][$k3_loc] = $v3;
-                                $re['kolvo_edit_dop'] ++;
+                                $re['kolvo_edit_dop']++;
                             }
                             $nn++;
                         }
@@ -786,20 +832,23 @@ class Iiko {
                     }
                 }
 
-                $re['kolvo_old'] ++;
+                $re['kolvo_old']++;
                 unset($data[$k]);
             }
         }
 
         if (!empty($data_new_option)) {
             // \f\pa($data_new_option, 2, '', '$data_new_option');
-            \Nyos\mod\items::saveNewDop($db, $data_new_option);
+            $ee = \Nyos\mod\items::saveNewDop($db, $data_new_option);
+            // \f\pa($ee, 2, '', '');
         }
 
         if (!empty($data_new)) {
             // \f\pa($data_new, 2, '', 'new data');
-            \Nyos\mod\items::addNewSimples($db, $mod_jobman, $data_new);
+            \Nyos\mod\items::addNewSimples($db, \Nyos\mod\JobDesc::$mod_jobman, $data_new);
         }
+
+        \f\Cash::deleteKeyPoFilter([\Nyos\mod\JobDesc::$mod_jobman]);
 
         return $re;
     }
@@ -841,13 +890,18 @@ class Iiko {
 
             $re = ['file_cash' => self::$file_cash];
 
-            if (self::$cash === true && file_exists(self::$file_cash) && filemtime(self::$file_cash) > $_SERVER['REQUEST_TIME'] - 3600 * 4) {
+            if (
+                    1 == 1
+                    or ( isset($_REQUEST['get_cash']) && filesize(self::$file_cash) > 100 && file_exists(self::$file_cash) )
+                    or ( self::$cash === true && file_exists(self::$file_cash) && filemtime(self::$file_cash) > $_SERVER['REQUEST_TIME'] - 3600 * 4 )
+            ) {
 
                 // $file_data = 'yes';
                 $re['file_cash_est'] = 'da';
                 $re['file_cash_time'] = date('Y-m-d H:i:s', filemtime(self::$file_cash));
 
                 self::$data_iiko_people = $re['data'] = json_decode(file_get_contents(self::$file_cash), true);
+                echo '<br/>#' . __LINE__ . ' ' . __FILE__ . ' используем кеш';
 
                 return $re;
             } else {
@@ -856,7 +910,7 @@ class Iiko {
             }
 
             echo '<hr>подключаемся к айке, получаем данные<hr>';
-
+            // exit;
             self::$data_iiko_people = $re['data'] = self::getAnswer('сотрудники');
 
             echo '<div style="background-color:#efefef;border:1px;padding:10px;margin-bottom:10px;max-height:300px;overflow:auto;">';
@@ -869,7 +923,6 @@ class Iiko {
             echo '<div style="background-color:#efefef;border:1px;padding:10px;margin-bottom:10px;max-height:300px;overflow:auto;">';
             \f\pa($re2, 2, '', 'выход рез');
             echo '</div>';
-
 
             if (class_exists('\\Nyos\\Msg')) {
                 echo 'Послали отчёт об операции в телеграм';
