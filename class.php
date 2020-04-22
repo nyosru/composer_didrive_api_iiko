@@ -758,10 +758,12 @@ class Iiko {
 
                 if ($v2 == 'birthday') {
 
+                    $v[$v2] = date('Y-m-d', strtotime($v[$v2]));
+                    
                     $v2 = 'bdate';
                     $v[$v2] = $k2;
 
-                    unset($v['birthday']);
+                    // unset($v['birthday']);
 
                     $v['bdate'] = date('Y-m-d', strtotime($v[$v2]));
                 } elseif ($v2 == 'hireDate') {
