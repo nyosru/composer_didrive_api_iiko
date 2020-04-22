@@ -1062,7 +1062,7 @@ class Iiko {
         try {
 
 
-            echo '<br/>#' . __LINE__ . ' ' . __FUNCTION__;
+            // echo '<br/>#' . __LINE__ . ' ' . __FUNCTION__;
 
 
             if (empty(self::$file_cash))
@@ -1134,7 +1134,7 @@ class Iiko {
             . '</pre>';
 
 
-            return ['status' => 'ошибка'];
+            return ['status' => 'ошибка', 'error_txt' => $ex->getMessage() ];
         } catch (\Exception $ex) {
 
             echo '<pre>--- ' . __FILE__ . ' ' . __LINE__ . '-------'
@@ -1143,8 +1143,7 @@ class Iiko {
             . PHP_EOL . $ex->getTraceAsString()
             . '</pre>';
 
-
-            return ['status' => 'ошибка'];
+            return ['status' => 'ошибка', 'error_txt' => $ex->getMessage() ];
         }
     }
 
@@ -1157,7 +1156,7 @@ class Iiko {
             if (!empty($v['server_iiko'])) {
 
                 // \f\pa($v);
-                \f\pa($v['server_iiko'], '', '', 'serv iiko');
+                // \f\pa($v['server_iiko'], '', '', 'serv iiko');
 
                 if (!empty($v['server_iiko']['host']))
                     \Nyos\api\Iiko::$host = $v['server_iiko']['host'];
