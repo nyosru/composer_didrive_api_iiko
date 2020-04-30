@@ -684,6 +684,7 @@ class Iiko {
          * массив для записи изменённых dop 
          */
         $re = [
+            'new_head' => [],
             'new_items' => [],
             'new_dop_data' => []
         ];
@@ -736,8 +737,17 @@ class Iiko {
 
             foreach ($ar_old as $k_old => $v_old) {
 
+
                 // if (isset($v_old['iiko_id']) && $v_old['iiko_id'] == $v['id']) {
                 if (isset($v_old['iiko_id']) && $v_old['iiko_id'] == $v['iiko_id']) {
+
+                    $new_head = trim(( $v_old['lastName'] ?? '' ) . ' ' . ( $v_old['firstName'] ?? '' ) . ' ' . ($v_old['middleName'] ?? '' ));
+                    if (trim($v_old['head']) != $new_head) {
+                        // \f\pa($v_old, '', '', 'v_old');
+                        // echo '<br/>'.$v_old['id'].'| '.$v_old['head'].' = '.( $v_old['lastName'] ?? '' ).' '.( $v_old['firstName'] ?? '' ).' '.($v_old['middleName'] ?? '' );
+                        $re['new_head'][$v_old['id']] = $new_head;
+                    }
+
                     $e = true;
                     $v_old_now = $v_old;
                     break;
@@ -759,7 +769,7 @@ class Iiko {
                 if ($v2 == 'birthday') {
 
                     $v[$v2] = date('Y-m-d', strtotime($v[$v2]));
-                    
+
                     $v2 = 'bdate';
                     $v[$v2] = $k2;
 
@@ -834,17 +844,34 @@ class Iiko {
 
         \f\Cash::deleteKeyPoFilter([\Nyos\mod\JobDesc::$mod_jobman]);
 
+        // новые head у записей
+
+        \f\pa($res_diff['new_head'], 2, '', 'записываем новые заголовки '.sizeof($res_diff['new_head']).' ( id > head )');
+        // $e = \Nyos\mod\items::saveEdit($db, $id_item, $folder, $cfg_mod, $data); // saveNewDop($db, $res_diff['new_head']);
+        $nnh = 1;
+        foreach ($res_diff['new_head'] as $u_id => $u_head) {
+
+            if ($nnh > 50)
+                break;
+
+            if (isset($u_head{5})) {
+                \f\db\db_edit2($db, 'mitems', array('id' => $u_id), array('head' => $u_head), false, 1, 'da');
+                $nnh++;
+            }
+
+        }
+
         // записываем изменённые допы
 
-        \f\pa($res_diff['new_dop_data'],2,'','записываем обновлённые допы');
+        \f\pa($res_diff['new_dop_data'], 2, '', 'записываем обновлённые допы');
         $e = \Nyos\mod\items::saveNewDop($db, $res_diff['new_dop_data']);
-        
+
         // \f\pa($e, '', '', 'items_save_new_dops');
         // записываем новые итемы
 
-        \f\pa($res_diff['new_items'], 2, '' , 'записываем новые записи');
+        \f\pa($res_diff['new_items'], 2, '', 'записываем новые записи');
         \Nyos\mod\items::addNewSimples($db, \Nyos\mod\JobDesc::$mod_jobman, $res_diff['new_items']);
-        
+
         return [
             'new_items' => sizeof($res_diff['new_items']),
             'new_dops_kolvo' => sizeof($res_diff['new_dop_data'])
@@ -1136,7 +1163,7 @@ class Iiko {
             . '</pre>';
 
 
-            return ['status' => 'ошибка', 'error_txt' => $ex->getMessage() ];
+            return ['status' => 'ошибка', 'error_txt' => $ex->getMessage()];
         } catch (\Exception $ex) {
 
             echo '<pre>--- ' . __FILE__ . ' ' . __LINE__ . '-------'
@@ -1145,7 +1172,7 @@ class Iiko {
             . PHP_EOL . $ex->getTraceAsString()
             . '</pre>';
 
-            return ['status' => 'ошибка', 'error_txt' => $ex->getMessage() ];
+            return ['status' => 'ошибка', 'error_txt' => $ex->getMessage()];
         }
     }
 
