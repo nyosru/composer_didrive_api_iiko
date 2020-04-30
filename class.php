@@ -846,19 +846,19 @@ class Iiko {
 
         // новые head у записей
 
-        \f\pa($res_diff['new_head'], 2, '', 'записываем новые заголовки '.sizeof($res_diff['new_head']).' ( id > head )');
+        \f\pa($res_diff['new_head'], 2, '', 'записываем новые заголовки ' . sizeof($res_diff['new_head']) . ' ( id > head )');
         // $e = \Nyos\mod\items::saveEdit($db, $id_item, $folder, $cfg_mod, $data); // saveNewDop($db, $res_diff['new_head']);
-        $nnh = 1;
+        $nnh = 0;
         foreach ($res_diff['new_head'] as $u_id => $u_head) {
-
-            if ($nnh > 50)
-                break;
 
             if (isset($u_head{5})) {
                 \f\db\db_edit2($db, 'mitems', array('id' => $u_id), array('head' => $u_head), false, 1, 'da');
+
+                if ($nnh >= 50)
+                    break;
+
                 $nnh++;
             }
-
         }
 
         // записываем изменённые допы
@@ -873,6 +873,7 @@ class Iiko {
         \Nyos\mod\items::addNewSimples($db, \Nyos\mod\JobDesc::$mod_jobman, $res_diff['new_items']);
 
         return [
+            'new_head' => $nnh,
             'new_items' => sizeof($res_diff['new_items']),
             'new_dops_kolvo' => sizeof($res_diff['new_dop_data'])
         ];
