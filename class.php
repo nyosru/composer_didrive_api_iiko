@@ -9,8 +9,8 @@ namespace Nyos\api;
 ini_set("max_execution_time", 120);
 
 
-if (!defined('IN_NYOS_PROJECT'))
-    throw new \Exception('Сработала защита от розовых хакеров, обратитесь к администрратору');
+//if (!defined('IN_NYOS_PROJECT'))
+//    throw new \Exception('Сработала защита от розовых хакеров, обратитесь к администрратору');
 
 /**
  * Парсер ответа от АПИ ИИКО
@@ -155,7 +155,7 @@ class Iiko {
                 );
 
 //            if (isset($_POST['typedb']) && $_POST['typedb'] == 'mysql' ) {
-//                $dops[\PDO::MYSQL_ATTR_INIT_COMMAND] = "SET NAMES 'utf8'";
+                $dops[\PDO::MYSQL_ATTR_INIT_COMMAND] = "SET NAMES 'utf8'";
 //            }
 
                 $db7 = new \PDO(
@@ -168,6 +168,9 @@ class Iiko {
                         , $dops
                 );
 
+                // $db->query("SET NAMES utf8");
+//                $ff = $db7->prepare('SET NAMES "utf8"');
+//                $ff->execute();
                 //$db7->exec("SET NAMES 'utf8'");
 //                        USE Chain
 //GO
@@ -197,9 +200,21 @@ class Iiko {
 
                 $ar_in_sql = array(
                     // ':id_user' => 'f34d6d84-5ecb-4a40-9b03-71d03cb730cb',
-                    ':id_user' => $id_user_iiko,
                     ':dates' => date('Y-m-d 00:00:00', strtotime($start_date))
                 );
+
+                $sql_users = '';
+
+                if (!empty($id_user_iiko) && is_array($id_user_iiko)) {
+
+                    $nn = 1;
+                    foreach ($id_user_iiko as $v7) {
+                        $sql_users .= (!empty($sql_users) ? ' OR ' : '' ) . ' employee = :u' . $nn;
+                        $ar_in_sql[':u' . $nn] = $v7;
+                    }
+                } else {
+                    $ar_in_sql[':id_user'] = $id_user_iiko;
+                }
 
                 if (!empty($date_fin)) {
                     $ar_in_sql[':date_end'] = date('Y-m-d 23:59:00', strtotime($date_fin));
@@ -207,13 +222,13 @@ class Iiko {
 
                 $ff = $db7->prepare('SELECT ' .
                         // ' dbo.EmployeeAttendanceEntry.employee \'user\', '.
-                        ' dbo.EmployeeAttendanceEntry.personalSessionStart \'start\',
-                    dbo.EmployeeAttendanceEntry.personalSessionEnd \'end\'
+                        ' dbo.EmployeeAttendanceEntry.personalSessionStart \'start\', ' .
+                        ' dbo.EmployeeAttendanceEntry.personalSessionEnd \'end\'
                 FROM 
                     dbo.EmployeeAttendanceEntry 
-                WHERE 
-                    employee = :id_user 
-                    AND personalSessionStart >= :dates '
+                WHERE '
+                        . (!empty($sql_users) ? $sql_users : ' employee = :id_user ' )
+                        . ' AND personalSessionStart >= :dates '
                         . (!empty($date_fin) ? ' AND personalSessionStart <= :date_end ' : '' )
                 );
 
@@ -221,12 +236,12 @@ class Iiko {
                 //$e3 = $ff->fetchAll();
                 $e3 = [];
                 while ($e = $ff->fetch()) {
-                    //$e['user'] = mb_convert_encoding($e['user'],'UTF-8','auto');
-                    //$e['user'] = utf8_decode($e['user']);
-//                $e['user'] = utf8_encode($e['user']);
-//                echo '<br/>'.mb_detect_order($e['user']);
-                    //$e['user'] = iconv('UCS-2LE','UTF-8',substr(base64_decode($e['user']),0,-1));
-                    //$e['user'] = html_entity_decode($e['user'], ENT_COMPAT | ENT_HTML401, 'UTF-8');
+                    // $e['user2'] = mb_convert_encoding($e['user'],'UTF-8','auto');
+                    // $e['user2'] = utf8_decode($e['user']);
+                    // $e['user'] = utf8_encode($e['user']);
+                    // echo '<br/>'.mb_detect_order($e['user']);
+                    // $e['user2'] = iconv('UCS-2LE','UTF-8',substr(base64_decode($e['user']),0,-1));
+                    // $e['user2'] = html_entity_decode($e['user'], ENT_COMPAT | ENT_HTML401, 'UTF-8');
                     $e3[] = $e;
                 }
                 //\f\pa($e3);
@@ -675,11 +690,15 @@ class Iiko {
         return $re;
     }
 
-    public static function diffLoadData($ar_old, $ar_new) {
+    public static function diffLoadData( $new , $old) {
 
-        echo '<br/>ff ' . __FUNCTION__;
-        echo '<br/>#' . __LINE__ . ' ' . __FILE__;
+//        echo '<br/>ff ' . __FUNCTION__;
+//        echo '<br/>#' . __LINE__ . ' ' . __FILE__;
+//        echo '<br/>';
+//        echo '<br/>';
 
+        $add_iiko_id = [];
+        
         /**
          * массив для записи изменённых dop 
          */
@@ -688,6 +707,75 @@ class Iiko {
             'new_items' => [],
             'new_dop_data' => []
         ];
+
+        $n = 0;
+
+        foreach ($new as $k => $new1) {
+
+            $new00 = true;
+
+            foreach ($old as $k1 => $old1) {
+
+//                \f\pa($v1['id'],2);
+//                \f\pa($v0['iiko_id'],2);
+//                    echo '<table><tr>'
+//                    . '<td>';
+//                        \f\pa( [ $new1['id'], $old1['iiko_id'] ] );                            
+//                    echo '</td>'
+//                    . '<td>';
+//                        \f\pa( $new1 );
+//                    echo '</td>'
+//                    . '<td>';
+//                        \f\pa( $old1 );
+//                    echo  '</td>'
+//                    . '</td></tr><table>';
+//                    
+//                    break; 
+                    
+                if (isset($new1['id']) && isset($old1['iiko_id']) && $old1['iiko_id'] == $new1['id']) {
+
+//                    echo '<table><tr>'
+//                    . '<td>';
+//                        \f\pa( [ $v1['id'], $v0['iiko_id'] ] );                            
+//                    echo '</td>'
+//                    . '<td>';
+//                        \f\pa( $v1 );
+//                    echo '</td>'
+//                    . '<td>';
+//                        \f\pa( $v0 );
+//                    echo  '</td>'
+//                    . '</td></tr><table>';
+
+                    $new00 = false;
+                    break;
+
+                }
+            }
+
+            if ($new00 === true && !empty( $new1['id'] ) ) {
+                if( isset($add_iiko_id[ $new1['id'] ]) )
+                    continue;
+                $add_iiko_id[ $new1['id'] ] = 1;
+                $re['new_items'][] = $new1;
+//                    echo '<table><tr>'
+//                    . '<td>';
+//                        \f\pa( [ $v1['id'], $v0['iiko_id'] ] );                            
+//                    echo '</td>'
+//                    . '<td>';
+//                        \f\pa( $v1 );
+//                    echo '</td>'
+//                    . '<td>';
+//                        \f\pa( $v0 );
+//                    echo  '</td>'
+//                    . '</td></tr><table>';
+            }
+
+            $n++;
+//            if( $n > 1 )
+//                break;
+        }
+
+        return \f\end3('ok', true, $re);
 
 //        echo '<table><tr><td>new';
 //        \f\pa($ar_new, 2);
@@ -1101,7 +1189,8 @@ class Iiko {
             $re = ['file_cash' => self::$file_cash];
 
             if (!empty(self::$file_cash) && file_exists(self::$file_cash) && filemtime(self::$file_cash) > ($_SERVER['REQUEST_TIME'] - 3600 * 4)) {
-                echo '<br/>#' . __LINE__ . ' + грузим кеш файл ( size ' . self::$file_cash . ' s ' . round(filesize(self::$file_cash) / 1024 / 1024, 2) . ' Mb )';
+                
+                // echo '<br/>#' . __LINE__ . ' + грузим кеш файл ( size ' . self::$file_cash . ' s ' . round(filesize(self::$file_cash) / 1024 / 1024, 2) . ' Mb )';
 
                 $re['file_cash_est'] = 'da';
                 $re['file_cash_time'] = date('Y-m-d H:i:s', filemtime(self::$file_cash));
