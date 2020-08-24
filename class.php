@@ -710,6 +710,8 @@ class Iiko {
 
         $n = 0;
 
+        $dop_new = [];
+        
         foreach ($new as $k => $new1) {
 
             $new00 = true;
@@ -734,6 +736,16 @@ class Iiko {
                     
                 if (isset($new1['id']) && isset($old1['iiko_id']) && $old1['iiko_id'] == $new1['id']) {
 
+                    
+                    $n = \Nyos\api\Iiko::convertIikoPeopleAr($new1);
+                    
+                    foreach( $n as $k3 => $v3 ){
+                        if( empty($old1[$k3]) || $old1[$k3] != $v3 ){
+                            // $re['new_dop_data'][$old1['id']][$k3.'_old'] = $old1[$k3];
+                            $re['new_dop_data'][$old1['id']][$k3] = $v3;
+                        }
+                    }
+                    
 //                    echo '<table><tr>'
 //                    . '<td>';
 //                        \f\pa( [ $v1['id'], $v0['iiko_id'] ] );                            
@@ -1158,13 +1170,18 @@ class Iiko {
         $d1 = [];
         foreach ($v as $k1 => $v1) {
             if ($k1 == 'id' || $k1 == 'name') {
-                $d1['iiko_' . $k1] = $v1;
+                $d1['iiko_' . $k1] = trim($v1 ?? '');
+            }elseif ($k1 == 'birthday' || $k1 == 'hireDate' || $k1 == 'fireDate' ) {
+                $d1[$k1] = substr($v1,0,10);
+                // $d1[$k1] = date( 'Y-m-d', strtotime($v1) );
             } elseif (is_array($v1)) {
                 foreach ($v1 as $k2 => $v2) {
-                    $d1[$k1 . '_' . $k2] = $v2;
+                    if( !empty($v2) )
+                    $d1[$k1 . '_' . $k2] = trim( $v2 ?? '');
+                    // echo '<pre>'; var_dump($v2); echo '</pre>';
                 }
             } else {
-                $d1[$k1] = $v1;
+                $d1[$k1] = trim($v1 ?? '');
             }
         }
 
