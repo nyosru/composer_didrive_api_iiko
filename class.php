@@ -51,6 +51,9 @@ class Iiko {
      * @var array
      */
     public static $request_ru = array(
+        'департаменты' => 'corporation/departments',
+        'подразделения' => 'corporation/groups',
+        'терминалы' => 'corporation/terminals',
         'сотрудники' => 'employees',
         'выход' => 'logout'
     );
@@ -690,7 +693,7 @@ class Iiko {
         return $re;
     }
 
-    public static function diffLoadData( $new , $old) {
+    public static function diffLoadData($new, $old) {
 
 //        echo '<br/>ff ' . __FUNCTION__;
 //        echo '<br/>#' . __LINE__ . ' ' . __FILE__;
@@ -698,7 +701,7 @@ class Iiko {
 //        echo '<br/>';
 
         $add_iiko_id = [];
-        
+
         /**
          * массив для записи изменённых dop 
          */
@@ -711,7 +714,7 @@ class Iiko {
         $n = 0;
 
         $dop_new = [];
-        
+
         foreach ($new as $k => $new1) {
 
             $new00 = true;
@@ -733,19 +736,19 @@ class Iiko {
 //                    . '</td></tr><table>';
 //                    
 //                    break; 
-                    
+
                 if (isset($new1['id']) && isset($old1['iiko_id']) && $old1['iiko_id'] == $new1['id']) {
 
-                    
+
                     $n = \Nyos\api\Iiko::convertIikoPeopleAr($new1);
-                    
-                    foreach( $n as $k3 => $v3 ){
-                        if( empty($old1[$k3]) || $old1[$k3] != $v3 ){
+
+                    foreach ($n as $k3 => $v3) {
+                        if (empty($old1[$k3]) || $old1[$k3] != $v3) {
                             // $re['new_dop_data'][$old1['id']][$k3.'_old'] = $old1[$k3];
                             $re['new_dop_data'][$old1['id']][$k3] = $v3;
                         }
                     }
-                    
+
 //                    echo '<table><tr>'
 //                    . '<td>';
 //                        \f\pa( [ $v1['id'], $v0['iiko_id'] ] );                            
@@ -760,14 +763,13 @@ class Iiko {
 
                     $new00 = false;
                     break;
-
                 }
             }
 
-            if ($new00 === true && !empty( $new1['id'] ) ) {
-                if( isset($add_iiko_id[ $new1['id'] ]) )
+            if ($new00 === true && !empty($new1['id'])) {
+                if (isset($add_iiko_id[$new1['id']]))
                     continue;
-                $add_iiko_id[ $new1['id'] ] = 1;
+                $add_iiko_id[$new1['id']] = 1;
                 $re['new_items'][] = $new1;
 //                    echo '<table><tr>'
 //                    . '<td>';
@@ -1171,13 +1173,13 @@ class Iiko {
         foreach ($v as $k1 => $v1) {
             if ($k1 == 'id' || $k1 == 'name') {
                 $d1['iiko_' . $k1] = trim($v1 ?? '');
-            }elseif ($k1 == 'birthday' || $k1 == 'hireDate' || $k1 == 'fireDate' ) {
-                $d1[$k1] = substr($v1,0,10);
+            } elseif ($k1 == 'birthday' || $k1 == 'hireDate' || $k1 == 'fireDate') {
+                $d1[$k1] = substr($v1, 0, 10);
                 // $d1[$k1] = date( 'Y-m-d', strtotime($v1) );
             } elseif (is_array($v1)) {
                 foreach ($v1 as $k2 => $v2) {
-                    if( !empty($v2) )
-                    $d1[$k1 . '_' . $k2] = trim( $v2 ?? '');
+                    if (!empty($v2))
+                        $d1[$k1 . '_' . $k2] = trim($v2 ?? '');
                     // echo '<pre>'; var_dump($v2); echo '</pre>';
                 }
             } else {
@@ -1196,9 +1198,7 @@ class Iiko {
 
         try {
 
-
             // echo '<br/>#' . __LINE__ . ' ' . __FUNCTION__;
-
 
             if (empty(self::$file_cash))
                 self::$file_cash = DR . DS . 'sites' . DS . \Nyos\Nyos::$folder_now . DS . 'people.iiko';
@@ -1206,40 +1206,45 @@ class Iiko {
             $re = ['file_cash' => self::$file_cash];
 
             if (!empty(self::$file_cash) && file_exists(self::$file_cash) && filemtime(self::$file_cash) > ($_SERVER['REQUEST_TIME'] - 3600 * 4)) {
-                
+
                 // echo '<br/>#' . __LINE__ . ' + грузим кеш файл ( size ' . self::$file_cash . ' s ' . round(filesize(self::$file_cash) / 1024 / 1024, 2) . ' Mb )';
 
                 $re['file_cash_est'] = 'da';
                 $re['file_cash_time'] = date('Y-m-d H:i:s', filemtime(self::$file_cash));
                 $re['data'] = json_decode(file_get_contents(self::$file_cash), true);
+
                 return $re;
             } else {
 
                 $re['file_cash_est'] = 'net';
             }
 
-
-
             echo '<hr>подключаемся к айке, получаем данные<hr>';
             // exit;
             // self::$data_iiko_people = 
             $re['data'] = self::getAnswer('сотрудники');
 
-            echo '<div style="background-color:#efefef;border:1px;padding:10px;margin-bottom:10px;max-height:300px;overflow:auto;">';
-            // \f\pa($re['data'], 2, '', 'данные рез');
-            echo 'загружено ' . sizeof($re['data']);
-            echo '</div>';
+            if (isset($_REQUEST['show'])) {
+                echo '<div style="background-color:#efefef;border:1px;padding:10px;margin-bottom:10px;max-height:300px;overflow:auto;">';
+                \f\pa($re['data'], 2, '', 'данные рез');
+                echo 'загружено ' . sizeof($re['data']);
+                echo '</div>';
+            }
 
-            echo '<hr>выходим из айки<hr>';
+            if (isset($_REQUEST['show']))
+                echo '<hr>выходим из айки<hr>';
             $re2 = self::getAnswer('выход');
 
-            echo '<div style="background-color:#efefef;border:1px;padding:10px;margin-bottom:10px;max-height:300px;overflow:auto;">';
-            \f\pa($re2, 2, '', 'выход рез');
-            echo '</div>';
+            if (isset($_REQUEST['show'])) {
+                echo '<div style="background-color:#efefef;border:1px;padding:10px;margin-bottom:10px;max-height:300px;overflow:auto;">';
+                \f\pa($re2, 2, '', 'выход рез');
+                echo '</div>';
+            }
 
 
             if (class_exists('\\Nyos\\Msg')) {
-                echo 'Послали отчёт об операции в телеграм';
+                if (isset($_REQUEST['show']))
+                    echo 'Послали отчёт об операции в телеграм';
                 $msg = 'Загрузили данные с айки по пользователям ( ' . sizeof($re['data']) . ' записей )';
                 \Nyos\Msg::sendTelegramm($msg, null, 1);
 
@@ -1249,19 +1254,23 @@ class Iiko {
                     }
                 }
             } else {
-                echo 'НЕ Послали отчёт об операции в телеграм';
+                if (isset($_REQUEST['show']))
+                    echo 'НЕ Послали отчёт об операции в телеграм';
             }
 
             // \f\pa($re2);
 
-            echo '<br/>#' . __LINE__ . ' записали кеш файл: ' . self::$file_cash;
+            if (isset($_REQUEST['show']))
+                echo '<br/>#' . __LINE__ . ' записали кеш файл: ' . self::$file_cash;
             file_put_contents(self::$file_cash, json_encode($re['data']));
 
             // $re = \Nyos\api\Iiko::compileArray($e,'сотрудники');
             // \Nyos\api\Iiko::$cash = true;
 
             return $re;
-        } catch (\PDOException $ex) {
+        }
+        //
+        catch (\PDOException $ex) {
 
             echo '<pre>--- ' . __FILE__ . ' ' . __LINE__ . '-------'
             . PHP_EOL . $ex->getMessage() . ' #' . $ex->getCode()
@@ -1269,9 +1278,10 @@ class Iiko {
             . PHP_EOL . $ex->getTraceAsString()
             . '</pre>';
 
-
             return ['status' => 'ошибка', 'error_txt' => $ex->getMessage()];
-        } catch (\Exception $ex) {
+        }
+        //
+        catch (\Exception $ex) {
 
             echo '<pre>--- ' . __FILE__ . ' ' . __LINE__ . '-------'
             . PHP_EOL . $ex->getMessage() . ' #' . $ex->getCode()
