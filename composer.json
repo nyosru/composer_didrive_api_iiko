@@ -2,7 +2,7 @@
     "name": "didrive_api/iiko",
     "type": "library",
     "description": "работа с АПИ ИИКО",
-    "version": "1.2.0",
+    "version": "1.3.0",
 
     "keywords": [
         "didrive",
@@ -23,13 +23,12 @@
     "license": "MIT",
     "require": {
         "php": ">=7.1.0",
-        "didrive/f": ">=2.3.3",
-        "didrive_mod/jobdesc" : ">=1.5"
+        "didrive/f": ">=2.3.3"
     }
     ,
     "autoload": {
         "files": [
-            "class.php"
+            "src/class.php"
         ]
     }
 }
