@@ -2,7 +2,7 @@
     "name": "didrive_api/iiko",
     "type": "library",
     "description": "работа с АПИ ИИКО",
-    "version": "1.6.3",
+    "version": "1.6.5",
 
     "keywords": [
         "didrive",

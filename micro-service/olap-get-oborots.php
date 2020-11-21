@@ -308,6 +308,7 @@ for ($u = 1; $u <= ( $_REQUEST['scan_day'] ?? 3 ); $u++) {
 }
 
 if (!empty($adds)) {
+    if (isset($_REQUEST['show']))
     \f\pa($adds, 2, '', 'добавляем записи');
     \Nyos\mod\items::adds($db, \Nyos\mod\JobDesc::$mod_oborots, $adds);
 }
