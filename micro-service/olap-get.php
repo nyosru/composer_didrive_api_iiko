@@ -63,38 +63,52 @@ if (!empty($_REQUEST['polya'])) {
 
 \Nyos\api\Iiko::$show_dop_info = true;
 
-if ( \Nyos\api\Iiko::$api_key === null)
+if (\Nyos\api\Iiko::$api_key === null)
     \Nyos\api\Iiko::getAutKey();
 
 $post = [
     "reportType" => "SALES",
     "groupByRowFields" => [
-        "Department.Id",
-        "JurName"
+        "RestorauntGroup"
     ],
     "groupByColFields" => [
         "OpenDate.Typed"
     ],
     "aggregateFields" => [
-        "UniqOrderId.OrdersCount",
+        // "DishSumInt",
         "DishDiscountSumInt"
     ],
     "filters" => [
         "OpenDate.Typed" => [
             "filterType" => "DateRange",
             "periodType" => "CUSTOM",
-            "from" => "2020-11-16",
-            "to" => "2020-11-19",
+            "from" => "2020-11-09",
+            "to" => "2020-11-15",
             "includeLow" => "true",
             "includeHigh" => "true"
         ]
     ]
 ];
 
-$ress = \Nyos\api\Iiko::curl_post( 
-        \Nyos\api\Iiko::$protokol . \Nyos\api\Iiko::$host . '/resto/api/v2/reports/olap?key=' . \Nyos\api\Iiko::$api_key
-        , $post, []);
-\f\pa($ress, 2, '', 'ress');
+// \f\pa(json_encode($post) ,'','','res0' );
+
+//$post2 = http_build_query($post)  ;
+//\f\pa( $post2 ,'','','post2' );
+
+$uri = \Nyos\api\Iiko::$protokol . \Nyos\api\Iiko::$host . '/resto/api/v2/reports/olap?key=' . \Nyos\api\Iiko::$api_key;
+
+\f\pa($uri);
+
+$ress = \Nyos\api\Iiko::curl_post(
+        $uri , 
+         json_encode($post)  
+         // http_build_query($post)  
+        //$post
+        ,
+        [ CURLOPT_HTTPHEADER => ['Content-Type: application/json'] ]
+        );
+
+\f\pa( json_decode($ress) , 2, '', 'ress');
 
 
 $rr = \Nyos\api\Iiko::getAnswer('выход');
