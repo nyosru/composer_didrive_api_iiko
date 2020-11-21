@@ -331,6 +331,9 @@ if (!empty($edited)) {
     }
 }
 
+$sms = 'грузим обороты с ИИКО'.PHP_EOL.'изменили ' . sizeof($edited) . ' добавили ' . sizeof($adds);
+\Nyos\Msg::sendTelegramm($sms, null, 2 );
+
 die('изменили ' . sizeof($edited) . ' добавили ' . sizeof($adds) . ' end');
 
 \f\pa($new, 2, '', '$new');
