@@ -116,6 +116,7 @@ $return = json_decode($ress);
 $rr = \Nyos\api\Iiko::getAnswer('выход');
 
 
+$sp_all = \Nyos\mod\items::get($db, \Nyos\mod\JobDesc::$mod_sale_point, 'show', 'id_id');
 $sps0 = \Nyos\mod\items::get($db, \Nyos\mod\JobDesc::$mod_sale_point);
 $sps = [];
 foreach ($sps0 as $k => $v) {
@@ -177,6 +178,9 @@ if (isset($_REQUEST['show']))
 $adds = [];
 $edited = [];
 
+    $sms = 'грузим обороты с ИИКО' . PHP_EOL ;
+
+
 for ($u = 1; $u <= ( $_REQUEST['scan_day'] ?? 3 ); $u++) {
 
     $scan_day = date('Y-m-d', strtotime('-' . $u . ' day'));
@@ -216,6 +220,8 @@ for ($u = 1; $u <= ( $_REQUEST['scan_day'] ?? 3 ); $u++) {
 
                 $edited[$now_sp_date_oborot_id[$sp][$scan_day]['id']] = [':oborot' => $vv[$scan_day], ':id' => $now_sp_date_oborot_id[$sp][$scan_day]['id']];
 
+                $sms .= PHP_EOL.$sp_all[$sp]['head'].' изм '.$scan_day.' '.$vv[$scan_day].'р';
+                
                 continue;
                 break;
 //
@@ -236,18 +242,21 @@ for ($u = 1; $u <= ( $_REQUEST['scan_day'] ?? 3 ); $u++) {
             // добавляем новый
             else {
                 if (isset($_REQUEST['show']))
-                echo ' Добавляем';
+                    echo ' Добавляем';
                 $adds[] = [
                     'sale_point' => $sp,
                     'date' => $scan_day,
                     'oborot_server' => $vv[$scan_day]
                 ];
+                
+                $sms .= PHP_EOL.$sp_all[$sp]['head'].' ++ '.$scan_day.' '.$vv[$scan_day].'р';
+                
             }
         }
         //
         else {
             if (isset($_REQUEST['show']))
-            echo '<br/>' . $sp . ' ' . $scan_day . ' ' . $vv[$scan_day] . ' нет';
+                echo '<br/>' . $sp . ' ' . $scan_day . ' ' . $vv[$scan_day] . ' нет';
         }
     }
 
@@ -295,7 +304,7 @@ for ($u = 1; $u <= ( $_REQUEST['scan_day'] ?? 3 ); $u++) {
     }
 
     if (isset($_REQUEST['show']))
-    echo '</blockqueote>';
+        echo '</blockqueote>';
 }
 
 if (!empty($adds)) {
@@ -317,7 +326,8 @@ if (!empty($edited)) {
 
             // echo '<br/>' . $sql;
             $ff = $db->prepare($sql);
-            \f\pa($ar);
+            if (isset($_REQUEST['show']))
+                \f\pa($ar);
             $ff->execute($ar);
         }
 
@@ -331,8 +341,8 @@ if (!empty($edited)) {
     }
 }
 
-$sms = 'грузим обороты с ИИКО'.PHP_EOL.'изменили ' . sizeof($edited) . ' добавили ' . sizeof($adds);
-\Nyos\Msg::sendTelegramm($sms, null, 2 );
+$sms .= PHP_EOL . 'итого: изменили ' . sizeof($edited) . ' добавили ' . sizeof($adds);
+\Nyos\Msg::sendTelegramm($sms, null, 2);
 
 die('изменили ' . sizeof($edited) . ' добавили ' . sizeof($adds) . ' end');
 
