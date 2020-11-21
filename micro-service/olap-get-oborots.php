@@ -220,7 +220,7 @@ for ($u = 1; $u <= ( $_REQUEST['scan_day'] ?? 3 ); $u++) {
 
                 $edited[$now_sp_date_oborot_id[$sp][$scan_day]['id']] = [':oborot' => $vv[$scan_day], ':id' => $now_sp_date_oborot_id[$sp][$scan_day]['id']];
 
-                $sms .= PHP_EOL.$sp_all[$sp]['head'].' изм '.$scan_day.' '.$vv[$scan_day].'р';
+                $sms .= PHP_EOL.$scan_day.' '.$sp_all[$sp]['head'].' edit '.$vv[$scan_day].'р';
                 
                 continue;
                 break;
@@ -249,14 +249,14 @@ for ($u = 1; $u <= ( $_REQUEST['scan_day'] ?? 3 ); $u++) {
                     'oborot_server' => $vv[$scan_day]
                 ];
                 
-                $sms .= PHP_EOL.$sp_all[$sp]['head'].' ++ '.$scan_day.' '.$vv[$scan_day].'р';
+                $sms .= PHP_EOL.$scan_day.' '.$sp_all[$sp]['head'].' add '.$vv[$scan_day].'р';
                 
             }
         }
         //
         else {
             if (isset($_REQUEST['show']))
-                echo '<br/>' . $sp . ' ' . $scan_day . ' ' . $vv[$scan_day] . ' нет';
+                echo '<br/>' . $scan_day . ' ' . $sp . ' ' . $vv[$scan_day] . ' нет';
         }
     }
 
