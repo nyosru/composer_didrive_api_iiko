@@ -8,7 +8,7 @@ ini_set('display_startup_errors', 1);
 if (isset($skip_start) && $skip_start === true) {
     
 } else {
-    require_once $_SERVER['DOCUMENT_ROOT'].'/vendor/didrive/base/start-for-microservice.php';
+    require_once $_SERVER['DOCUMENT_ROOT'] . '/vendor/didrive/base/start-for-microservice.php';
 }
 
 \Nyos\api\Iiko::getConfigDbIiko();
@@ -17,7 +17,7 @@ if (!empty($_REQUEST['exit_key'])) {
 
     \Nyos\api\iiko::$api_key = $_REQUEST['exit_key'];
     $rr = \Nyos\api\Iiko::getAnswer('выход');
-    // \f\pa($rr);
+// \f\pa($rr);
     die('вышли из ключа');
 }
 
@@ -68,27 +68,84 @@ if (!empty($_REQUEST['polya'])) {
 
 \Nyos\api\Iiko::$show_dop_info = true;
 
+//\Nyos\api\Iiko::$api_key = 'b71af62d-e028-86bd-3a49-f91ddc5ba9a4';
+
 if (\Nyos\api\Iiko::$api_key === null)
     \Nyos\api\Iiko::getAutKey();
 
+//{"groupByRowFields":["Delivery.Courier.Id"],"groupByColFields":["OpenDate.Typed"],"aggregateFields":["DishSumInt","UniqOrderId"],"filters":{"OpenDate.Typed":{"filterType":"DateRange","periodType":"CUSTOM","from":"2020-12-01","to":"2020-12-01","includeLow":"true","includeHigh":"true"}}}
+//Список полей для группировки по строкам
+//[
+//  "Delivery.Courier.Id"
+//]
+//
+//Список полей для группировки по столбцам
+//[
+//  "OpenDate.Typed"
+//]
+//
+//Список полей для агрегации
+//[
+//  "DishSumInt",
+//  "UniqOrderId"
+//]
+//
+//Список фильтров
+//{
+//  "OpenDate.Typed": {
+//    "filterType": "DateRange",
+//    "periodType": "CUSTOM",
+//    "from": "2020-12-01",
+//    "to": "2020-12-01",
+//    "includeLow": "true",
+//    "includeHigh": "true"
+//  }
+//}
+//{
+//  "reportType": "DELIVERIES",
+//  "groupByRowFields": [
+//    "Delivery.Courier.Id"
+//  ],
+//  "groupByColFields": [
+//    "OpenDate.Typed"
+//  ],
+//  "aggregateFields": [
+//    "DishSumInt",
+//    "UniqOrderId"
+//  ],
+//  "filters": {
+//    "OpenDate.Typed": {
+//      "filterType": "DateRange",
+//      "periodType": "CUSTOM",
+//      "from": "2020-12-01",
+//      "to": "2020-12-01",
+//      "includeLow": "true",
+//      "includeHigh": "true"
+//    }
+//  }
+//}
+
+$date_start = date('Y-m-d', strtotime('-' . ( $_REQUEST['scan_day'] ?? 3 ) . ' day'));
+$date_fin = date('Y-m-d', strtotime('-1 day'));
+
 $post = [
-    "reportType" => "SALES",
+    "reportType" => "DELIVERIES",
     "groupByRowFields" => [
-        "RestorauntGroup"
+        "Delivery.Courier.Id"
     ],
     "groupByColFields" => [
         "OpenDate.Typed"
     ],
     "aggregateFields" => [
-        // "DishSumInt",
+        "UniqOrderId",
         "DishDiscountSumInt"
     ],
     "filters" => [
         "OpenDate.Typed" => [
             "filterType" => "DateRange",
             "periodType" => "CUSTOM",
-            "from" => date('Y-m-d', strtotime('-' . ( $_REQUEST['scan_day'] ?? 3 ) . ' day')),
-            "to" => date('Y-m-d', strtotime('-1 day')),
+            "from" => $date_start,
+            "to" => $date_fin,
             "includeLow" => "true",
             "includeHigh" => "true"
         ]
@@ -107,8 +164,8 @@ if (isset($_REQUEST['show']))
 $ress = \Nyos\api\Iiko::curl_post(
                 $uri,
                 json_encode($post)
-                // http_build_query($post)  
-                //$post
+// http_build_query($post)  
+//$post
                 ,
                 [CURLOPT_HTTPHEADER => ['Content-Type: application/json']]
 );
@@ -117,8 +174,139 @@ $ress = \Nyos\api\Iiko::curl_post(
 
 $return = json_decode($ress);
 
-
 $rr = \Nyos\api\Iiko::getAnswer('выход');
+
+// \f\pa($return->data);
+
+$search_key = [];
+
+foreach ($return->data as $k => $v) {
+
+    $v1 = (array) $v;
+//    \f\pa($v1);
+//    $v2 = [];
+
+    foreach ($v1 as $k2 => $v2) {
+
+        $kk2 = \f\translit($k2, 'uri2');
+
+// \f\pa([$k2, $kk2,$v2]);
+//        $v2[$kk2] = $v2;
+
+        if ($kk2 == 'delivery_courier_id' && !empty($v2))
+            $search_key[$v2] = 1;
+    }
+}
+
+// \f\pa($search_key, 2, '', '$search_key');
+// \Nyos\mod\items::$show_sql = true;
+// \Nyos\mod\items::$sql_select_vars = [ 'id', 'iiko_id', 'iiko_name', 'firstName', 'lastName' ];
+\Nyos\mod\items::$sql_select_vars = ['id', 'iiko_id'];
+\Nyos\mod\items::$search = ['iiko_id' => array_keys($search_key)];
+$ee = \Nyos\mod\items::get($db, '070.jobman');
+//$ee = \Nyos\mod\items::get($db, 'delivery' );
+// \f\pa($ee, 2, '', '$ee');
+$_ar_iiko_ids = [];
+foreach ($ee as $k => $v) {
+    $_ar_iiko_ids[$v['iiko_id']] = $v['id'];
+}
+
+//\f\pa($_ar_iiko_ids, 2, '', '$_ar_iiko_ids');
+$v3 = [];
+
+$jobmans = [];
+
+foreach ($return->data as $k => $v) {
+
+    $v1 = (array) $v;
+// \f\pa($v1);
+
+    $v22 = [];
+
+    foreach ($v1 as $k2 => $v2) {
+
+        $kk2 = \f\translit($k2, 'uri2');
+
+// \f\pa([$k2, $kk2,$v2]);
+        $v22[$kk2] = $v2;
+
+//        if ($kk2 == 'delivery_courier_id')
+//            $search_key[$v2] = 1;
+    }
+
+    if (!empty($_ar_iiko_ids[$v22['delivery_courier_id']])) {
+        $v22['jobman'] = $_ar_iiko_ids[$v22['delivery_courier_id']];
+        $jobmans[$_ar_iiko_ids[$v22['delivery_courier_id']]] = 1;
+        $v3[] = $v22;
+    }
+}
+
+// \f\pa($v3, 2, '', '$v3');
+// \Nyos\mod\items::$show_sql = true;
+\Nyos\mod\items::$sql_select_vars = ['id', 'opendate_typed', 'jobman', 'uniqorderid'];
+\Nyos\mod\items::$between_date['opendate_typed'] = [$date_start, $date_fin];
+\Nyos\mod\items::$search['jobman'] = array_keys($jobmans);
+$in_db = \Nyos\mod\items::get($db, 'delivery');
+
+// \f\pa($in_db, 2, '', '$in_db');
+
+$now_in_db = [];
+
+foreach ($in_db as $k => $v) {
+    $now_in_db[$v['jobman'] . $v['opendate_typed']] = ['id' => $v['id'], 'uniqorderid' => $v['uniqorderid']];
+}
+
+// \f\pa($now_in_db, 2, '', '$now_in_db');
+
+$add_in_db = [];
+
+$delete_ids = [];
+
+foreach ($v3 as $k => $v) {
+    if (!empty($v['jobman'])) {
+
+        if (isset($now_in_db[$v['jobman'] . $v['opendate_typed']]['uniqorderid']) && $now_in_db[$v['jobman'] . $v['opendate_typed']]['uniqorderid'] == $v['uniqorderid']) {
+            
+        } elseif (isset($now_in_db[$v['jobman'] . $v['opendate_typed']]['uniqorderid'])) {
+
+            if (isset($now_in_db[$v['jobman'] . $v['opendate_typed']]['id']))
+                $delete_ids[] = $now_in_db[$v['jobman'] . $v['opendate_typed']]['id'];
+        } else {
+            $add_in_db[] = $v;
+        }
+    }
+}
+
+if (!empty($delete_ids))
+    \Nyos\mod\items::deleteItemForDops($db, 'delivery', ['id' => $delete_ids]);
+
+// \f\pa($add_in_db);
+
+if (!empty($add_in_db)) {
+    
+    \Nyos\Msg::sendTelegramm( 'получили данные по работе курьеров, добавлено записей '.sizeof($add_in_db), null, 2);
+    
+    $e = \Nyos\mod\items::adds($db, 'delivery', $add_in_db);
+    \f\pa($e);
+}
+
+die();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 $sp_all = \Nyos\mod\items::get($db, \Nyos\mod\JobDesc::$mod_sale_point, 'show', 'id_id');
@@ -155,7 +343,7 @@ foreach ($return->data as $k => $v) {
             $n2 += 1;
             $in0['sale_point'] = $sps[$v1];
         }
-        // echo '<br/>' . $k1 . ' - ' . $v1;
+// echo '<br/>' . $k1 . ' - ' . $v1;
     }
 
     if ($n2 == 111) {
@@ -210,7 +398,7 @@ for ($u = 1; $u <= ( $_REQUEST['scan_day'] ?? 3 ); $u++) {
             }
 
 
-            // всё норм сходится и есть
+// всё норм сходится и есть
             if (isset($now_sp_date_oborot_id[$sp][$scan_day]['oborot']) && $now_sp_date_oborot_id[$sp][$scan_day]['oborot'] == $vv[$scan_day]) {
 
                 if (isset($_REQUEST['show']))
@@ -218,7 +406,7 @@ for ($u = 1; $u <= ( $_REQUEST['scan_day'] ?? 3 ); $u++) {
                 continue;
                 break;
             }
-            // ( есть не сходится) изменяем
+// ( есть не сходится) изменяем
             elseif (!empty($now_sp_date_oborot_id[$sp][$scan_day]['id'])) {
 
                 if (isset($_REQUEST['show']))
@@ -250,7 +438,7 @@ for ($u = 1; $u <= ( $_REQUEST['scan_day'] ?? 3 ); $u++) {
 //
 //                break;
             }
-            // добавляем новый
+// добавляем новый
             else {
                 if (isset($_REQUEST['show']))
                     echo ' Добавляем';
@@ -268,7 +456,7 @@ for ($u = 1; $u <= ( $_REQUEST['scan_day'] ?? 3 ); $u++) {
                 ];
             }
         }
-        //
+//
         else {
             if (isset($_REQUEST['show']))
                 echo '<br/>' . $scan_day . ' ' . $sp . ' ' . $vv[$scan_day] . ' нет';
@@ -299,8 +487,8 @@ for ($u = 1; $u <= ( $_REQUEST['scan_day'] ?? 3 ); $u++) {
                             break;
                         } else {
 
-                            // echo '<br/>' . $sp . ' ' . $v['date'] . ' ' . ( $v['oborot_hand'] ?? '-' ) . '/' . ( $v['oborot_server_hand'] ?? '-' ) . '/' . ( $v['oborot_server'] ?? '-' ) . '/' . $oborot;
-                            // $sql_delete[] = $v['id'];
+// echo '<br/>' . $sp . ' ' . $v['date'] . ' ' . ( $v['oborot_hand'] ?? '-' ) . '/' . ( $v['oborot_server_hand'] ?? '-' ) . '/' . ( $v['oborot_server'] ?? '-' ) . '/' . $oborot;
+// $sql_delete[] = $v['id'];
 
                             $sql = 'UPDATE `mod_' . \f\translit(\Nyos\mod\jobdesc::$mod_oborots, 'uri2') . '` SET `oborot_server_hand` = NULL, `oborot_server`=:oborot WHERE id = :id LIMIT 1 ;';
 
@@ -334,24 +522,24 @@ if (!empty($edited)) {
     $sql = 'UPDATE `mod_' . \f\translit(\Nyos\mod\jobdesc::$mod_oborots, 'uri2') . '` SET `oborot_server_hand` = NULL, `oborot_server`=:oborot WHERE id = :id LIMIT 1 ;';
 
     try {
-        // Начало транзакции
+// Начало транзакции
         $db->beginTransaction();
-        // ... code
+// ... code
 
         foreach ($edited as $kk => $ar) {
 
-            // echo '<br/>' . $sql;
+// echo '<br/>' . $sql;
             $ff = $db->prepare($sql);
             if (isset($_REQUEST['show']))
                 \f\pa($ar);
             $ff->execute($ar);
         }
 
-        // Если в результате выполнения нашего кода всё прошло успешно,
-        // то зафиксируем этот результат
+// Если в результате выполнения нашего кода всё прошло успешно,
+// то зафиксируем этот результат
         $db->commit();
     } catch (Exception $e) {
-        // Иначе, откатим транзакцию. 
+// Иначе, откатим транзакцию. 
         $pdo->rollBack();
         echo "Ошибка: " . $e->getMessage();
     }
@@ -377,7 +565,7 @@ if (!empty($clear_ocenka)) {
 
     if (!empty($sql0)) {
         $ss = 'DELETE FROM `mod_sp_ocenki_job_day` WHERE ' . $sql0;
-        // \f\pa($ss);
+// \f\pa($ss);
         $ff = $db->prepare($ss);
         $ff->execute($a0);
     }
@@ -419,8 +607,8 @@ foreach ($in as $sp => $v1) {
                     break;
                 } elseif ($v['oborot_server'] != $oborot) {
 
-                    // echo '<br/>' . $sp . ' ' . $v['date'] . ' ' . ( $v['oborot_hand'] ?? '-' ) . '/' . ( $v['oborot_server_hand'] ?? '-' ) . '/' . ( $v['oborot_server'] ?? '-' ) . '/' . $oborot;
-                    // $sql_delete[] = $v['id'];
+// echo '<br/>' . $sp . ' ' . $v['date'] . ' ' . ( $v['oborot_hand'] ?? '-' ) . '/' . ( $v['oborot_server_hand'] ?? '-' ) . '/' . ( $v['oborot_server'] ?? '-' ) . '/' . $oborot;
+// $sql_delete[] = $v['id'];
 
                     $sql = 'UPDATE `mod_' . \f\translit(\Nyos\mod\jobdesc::$mod_oborots, 'uri2') . '` SET `oborot_server_hand` = NULL, `oborot_server`=:oborot WHERE id = :id LIMIT 1 ;';
 
@@ -500,15 +688,15 @@ die('<br/>конец');
 // $re['data'] = \Nyos\api\Iiko::getAnswer('подразделения');
 
 $v = [
-    // 'department' => '8e5f876b-7b41-45ac-b01b-9311c552bb33' ,
-    // 'department' => '4c360162-6e12-da32-0145-88f5ce8c000d' ,
-    // 'department' => 'f7ccc3ad-0e49-41f6-8f1a-54271aefbab9' ,
-    // 'department' => '19fdf41e-74f9-4926-aa7d-54cf0016c51b' ,
-    // 'department' => '7135f47f-7ce6-4189-be06-93cd4c5d6431' ,
-    // 'department' => '8e5f876b-7b41-45ac-b01b-9311c552bb33' ,
-    // 'department' => 'befb12f4-0615-4c79-8163-1db7089f4c01' ,
-    //'department' => '4c360162-6e12-da32-0145-88f5ce8c000d' ,
-    //tt1
+// 'department' => '8e5f876b-7b41-45ac-b01b-9311c552bb33' ,
+// 'department' => '4c360162-6e12-da32-0145-88f5ce8c000d' ,
+// 'department' => 'f7ccc3ad-0e49-41f6-8f1a-54271aefbab9' ,
+// 'department' => '19fdf41e-74f9-4926-aa7d-54cf0016c51b' ,
+// 'department' => '7135f47f-7ce6-4189-be06-93cd4c5d6431' ,
+// 'department' => '8e5f876b-7b41-45ac-b01b-9311c552bb33' ,
+// 'department' => 'befb12f4-0615-4c79-8163-1db7089f4c01' ,
+//'department' => '4c360162-6e12-da32-0145-88f5ce8c000d' ,
+//tt1
     'department' => 'f939f35f-c169-4be9-9933-5af230748ede',
     'dateFrom' => date('d.m.Y', $_SERVER['REQUEST_TIME'] - 3600 * 24 * 2),
 //    'hourFrom' => 6,
@@ -577,7 +765,7 @@ try {
             . ' SET `status` = \'delete\' '
             . ' WHERE `auto_bonus_zp` = \'da\' '
             . ' ;';
-    // \f\pa($sql);
+// \f\pa($sql);
     $ff = $db->prepare($sql);
     $ff->execute();
 
@@ -588,8 +776,8 @@ try {
 
     \Nyos\mod\items::$search['auto_bonus_zp'] = 'da';
 //    \Nyos\mod\items::$between_date['date_now'] = [$date_start, $date_finish];
-    // \Nyos\mod\items::$return_items_header = true;
-    // \Nyos\mod\items::$show_sql = true;
+// \Nyos\mod\items::$return_items_header = true;
+// \Nyos\mod\items::$show_sql = true;
     $items = \Nyos\mod\items::get($db, \Nyos\mod\JobDesc::$mod_bonus);
     \f\pa($items, 2);
 
@@ -605,7 +793,7 @@ try {
         \f\pa($sql);
         $ff = $db->prepare($sql);
 
-        // \f\pa($var_in_sql);
+// \f\pa($var_in_sql);
         $ff->execute([':module' => \Nyos\mod\JobDesc::$mod_bonus]);
     } else {
         echo '<br/>нечего удалять';
@@ -618,5 +806,5 @@ try {
     echo '<pre>';
     print_r($exc);
     echo '</pre>';
-    // echo $exc->getTraceAsString();
+// echo $exc->getTraceAsString();
 }
